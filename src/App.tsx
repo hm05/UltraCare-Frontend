@@ -64,7 +64,7 @@ function App() {
         <h2 className="section-title">Our Features</h2>
         <div className="features-grid">
           <div className="feature-card">
-            {/* <div className="feature-icon"></div> */}
+            {/* <div className="feature-icon">🩻</div> */}
             <h3>X-Ray Reporting</h3>
             <p>Fast and accurate X-ray analysis with AI assistance</p>
           </div>
