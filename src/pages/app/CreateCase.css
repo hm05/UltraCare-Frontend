@@ -1,0 +1,22 @@
+.create-case-page {
+    max-width: 800px;
+}
+
+.create-case-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6);
+}
+
+.form-section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+}
+
+.form-section-title {
+    font-size: var(--font-size-lg);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin-bottom: var(--space-2);
+}

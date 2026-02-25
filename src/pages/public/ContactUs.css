@@ -1,0 +1,59 @@
+.contact-page {
+    padding: var(--space-16) 0;
+}
+
+.contact-grid {
+    display: grid;
+    grid-template-columns: 1.2fr 0.8fr;
+    gap: var(--space-8);
+    align-items: start;
+}
+
+.contact-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+}
+
+.contact-form h2 {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    font-size: var(--font-size-xl);
+    font-weight: 700;
+    margin-bottom: var(--space-2);
+}
+
+.contact-info {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6);
+}
+
+.info-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+}
+
+.info-card h3 {
+    font-size: var(--font-size-md);
+    font-weight: 600;
+}
+
+.info-card p {
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.email-link {
+    font-size: var(--font-size-md);
+    font-weight: 600;
+    color: var(--accent);
+}
+
+@media (max-width: 768px) {
+    .contact-grid {
+        grid-template-columns: 1fr;
+    }
+}
