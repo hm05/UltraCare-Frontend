@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import toast from 'react-hot-toast';
@@ -9,6 +10,8 @@ import './Auth.css';
 export default function Signup() {
     const [form, setForm] = useState({ email: '', password: '', confirmPassword: '', firstName: '', lastName: '', phone: '' });
     const [loading, setLoading] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
+    const [showConfirm, setShowConfirm] = useState(false);
     const { register } = useAuth();
     const { theme } = useTheme();
     const navigate = useNavigate();
@@ -70,11 +73,21 @@ export default function Signup() {
                     <div className="form-row">
                         <div className="form-group">
                             <label className="form-label">Password</label>
-                            <input className="form-input" type="password" placeholder="Min 8 characters" value={form.password} onChange={(e) => update('password', e.target.value)} required />
+                            <div className="input-with-icon">
+                                <input className="form-input" type={showPassword ? 'text' : 'password'} placeholder="Min 8 characters" value={form.password} onChange={(e) => update('password', e.target.value)} required />
+                                <button type="button" className="input-icon-btn" onClick={() => setShowPassword(!showPassword)} tabIndex={-1}>
+                                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                </button>
+                            </div>
                         </div>
                         <div className="form-group">
                             <label className="form-label">Confirm Password</label>
-                            <input className="form-input" type="password" placeholder="Confirm Password" value={form.confirmPassword} onChange={(e) => update('confirmPassword', e.target.value)} required />
+                            <div className="input-with-icon">
+                                <input className="form-input" type={showConfirm ? 'text' : 'password'} placeholder="Confirm Password" value={form.confirmPassword} onChange={(e) => update('confirmPassword', e.target.value)} required />
+                                <button type="button" className="input-icon-btn" onClick={() => setShowConfirm(!showConfirm)} tabIndex={-1}>
+                                    {showConfirm ? <EyeOff size={18} /> : <Eye size={18} />}
+                                </button>
+                            </div>
                         </div>
                     </div>
                     <button className="btn btn-primary btn-lg auth-submit" type="submit" disabled={loading}>

@@ -78,3 +78,33 @@
 .auth-footer a {
     font-weight: 600;
 }
+
+/* Password visibility toggle */
+.input-with-icon {
+    position: relative;
+}
+
+.input-with-icon .form-input {
+    padding-right: 44px;
+}
+
+.input-icon-btn {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    padding: var(--space-1);
+    border-radius: var(--radius-sm);
+    color: var(--text-tertiary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    transition: color var(--transition-fast);
+}
+
+.input-icon-btn:hover {
+    color: var(--text-primary);
+}

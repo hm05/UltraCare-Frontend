@@ -95,17 +95,17 @@ export default function Home() {
                                 </div>
                                 {/* Mini line graph */}
                                 <div className="preview-chart">
-                                    <svg viewBox="0 0 200 80" className="preview-line-svg" preserveAspectRatio="none">
+                                    <svg viewBox="0 0 200 80" className="preview-line-svg" shapeRendering="geometricPrecision">
                                         <defs>
                                             <linearGradient id="lineGrad" x1="0" y1="0" x2="0" y2="1">
-                                                <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.3" />
+                                                <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.15" />
                                                 <stop offset="100%" stopColor="var(--accent)" stopOpacity="0" />
                                             </linearGradient>
                                         </defs>
-                                        <path d="M0,60 L28,45 L57,55 L85,30 L114,40 L142,15 L171,25 L200,10 L200,80 L0,80Z" fill="url(#lineGrad)" />
-                                        <polyline points="0,60 28,45 57,55 85,30 114,40 142,15 171,25 200,10" fill="none" stroke="var(--accent)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="preview-line-path" />
-                                        {[{ x: 0, y: 60 }, { x: 28, y: 45 }, { x: 57, y: 55 }, { x: 85, y: 30 }, { x: 114, y: 40 }, { x: 142, y: 15 }, { x: 171, y: 25 }, { x: 200, y: 10 }].map((p, i) => (
-                                            <circle key={i} cx={p.x} cy={p.y} r="3" fill="var(--accent)" />
+                                        <path d="M0,50 L28,35 L57,42 L85,55 L114,30 L142,38 L171,20 L200,25 L200,80 L0,80Z" fill="url(#lineGrad)" />
+                                        <polyline points="0,50 28,35 57,42 85,55 114,30 142,38 171,20 200,25" fill="none" stroke="var(--accent)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" className="preview-line-path" />
+                                        {[{ x: 0, y: 50 }, { x: 28, y: 35 }, { x: 57, y: 42 }, { x: 85, y: 55 }, { x: 114, y: 30 }, { x: 142, y: 38 }, { x: 171, y: 20 }, { x: 200, y: 25 }].map((p, i) => (
+                                            <circle key={i} cx={p.x} cy={p.y} r="2" fill="var(--accent)" />
                                         ))}
                                     </svg>
                                 </div>
@@ -193,7 +193,7 @@ export default function Home() {
                             whileInView={{ opacity: 1, x: 0 }}
                             viewport={{ once: true }}
                         >
-                            <h3>🏥 Purpose-Built</h3>
+                            <h3>Purpose-Built</h3>
                             <p>Designed exclusively for radiology and diagnostic imaging centers — not a generic EHR system.</p>
                         </motion.div>
                         <motion.div
@@ -202,7 +202,7 @@ export default function Home() {
                             whileInView={{ opacity: 1, x: 0 }}
                             viewport={{ once: true }}
                         >
-                            <h3>⚡ Lightning Fast</h3>
+                            <h3>Lightning Fast</h3>
                             <p>Powered by edge computing for sub-100ms response times. Your workflow never waits.</p>
                         </motion.div>
                         <motion.div
@@ -212,7 +212,7 @@ export default function Home() {
                             viewport={{ once: true }}
                             transition={{ delay: 0.1 }}
                         >
-                            <h3>🔒 Enterprise Security</h3>
+                            <h3>Enterprise Security</h3>
                             <p>End-to-end encryption, role-based access, and row-level security at the database level.</p>
                         </motion.div>
                         <motion.div
@@ -222,7 +222,7 @@ export default function Home() {
                             viewport={{ once: true }}
                             transition={{ delay: 0.1 }}
                         >
-                            <h3>📊 Actionable Insights</h3>
+                            <h3>Actionable Insights</h3>
                             <p>Real-time dashboards, collection reports, and referral analytics to grow your practice.</p>
                         </motion.div>
                     </div>
