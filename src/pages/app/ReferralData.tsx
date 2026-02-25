@@ -93,7 +93,7 @@ export default function ReferralData() {
                             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                             <XAxis dataKey="name" tick={{ fontSize: 11, fill: 'var(--text-tertiary)' }} />
                             <YAxis tick={{ fontSize: 11, fill: 'var(--text-tertiary)' }} />
-                            <Tooltip formatter={(v: number) => `₹${v.toLocaleString()}`} />
+                            <Tooltip formatter={(v: number | undefined) => `₹${(v ?? 0).toLocaleString()}`} />
                             <Bar dataKey="amount" fill="var(--accent)" radius={[6, 6, 0, 0]} />
                         </BarChart>
                     </ResponsiveContainer>

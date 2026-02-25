@@ -1,4 +1,3 @@
-import React from 'react';
 import { motion } from 'framer-motion';
 import { Shield, Activity, BarChart3, Users, FileText, Cloud, ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';

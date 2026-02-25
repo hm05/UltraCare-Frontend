@@ -14,6 +14,7 @@ interface User {
 interface AuthContextType {
     user: User | null;
     token: string | null;
+    role: 'doctor' | 'staff' | 'admin' | null;
     isAuthenticated: boolean;
     isLoading: boolean;
     login: (email: string, password: string) => Promise<{ organizationSetupRequired?: boolean }>;
@@ -94,6 +95,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             value={{
                 user,
                 token,
+                role: user?.role ?? null,
                 isAuthenticated: !!token && !!user,
                 isLoading,
                 login,

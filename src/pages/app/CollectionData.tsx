@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { collectionApi } from '../../api';
 import { Download, FileText } from 'lucide-react';
@@ -81,7 +81,7 @@ export default function CollectionData() {
                                     <Pie data={serviceData} cx="50%" cy="50%" innerRadius={55} outerRadius={85} paddingAngle={3} dataKey="value" stroke="none">
                                         {serviceData.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
                                     </Pie>
-                                    <Tooltip formatter={(v: number) => `₹${v.toLocaleString()}`} />
+                                    <Tooltip formatter={(v: number | undefined) => `₹${(v ?? 0).toLocaleString()}`} />
                                 </PieChart>
                             </ResponsiveContainer>
                             <div className="chart-legend">

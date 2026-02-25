@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { casesApi, organizationApi } from '../api';
 import { useAuth } from '../contexts/AuthContext';
@@ -9,7 +9,7 @@ import './Dashboard.css';
 const CHART_COLORS = ['#0071E3', '#30D158', '#FF9F0A', '#FF3B30', '#AF52DE', '#FF6482'];
 
 export default function DoctorDashboard() {
-    const { user } = useAuth();
+    const { } = useAuth();
     const [todayCases, setTodayCases] = useState<any[]>([]);
     const [dashboard, setDashboard] = useState<any>(null);
     const [loading, setLoading] = useState(true);
@@ -109,7 +109,7 @@ export default function DoctorDashboard() {
                                             <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
                                         ))}
                                     </Pie>
-                                    <Tooltip formatter={(value: number) => `₹${value.toLocaleString()}`} />
+                                    <Tooltip formatter={(value: number | undefined) => `₹${(value ?? 0).toLocaleString()}`} />
                                 </PieChart>
                             </ResponsiveContainer>
                             <div className="chart-legend">

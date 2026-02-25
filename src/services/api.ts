@@ -1,4 +1,5 @@
-import axios, { AxiosError, AxiosInstance, InternalAxiosRequestConfig } from 'axios';
+import axios, { AxiosError } from 'axios';
+import type { AxiosInstance, InternalAxiosRequestConfig } from 'axios';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8787';
 
@@ -42,7 +43,7 @@ api.interceptors.response.use(
 export const authAPI = {
     login: (email: string, password: string) =>
         api.post('/login', { email, password }),
-    
+
     register: (data: {
         email: string;
         password: string;
@@ -50,10 +51,10 @@ export const authAPI = {
         lastName: string;
         phone: string;
     }) => api.post('/register', data),
-    
+
     forgotPassword: (email: string) =>
         api.post('/staff/forgot-password', { email }),
-    
+
     resetPassword: (userId: string, newPassword: string) =>
         api.post('/admin/reset-password', { userId, newPassword }),
 };
@@ -80,28 +81,28 @@ export const caseAPI = {
         amount: number;
         paymentMode: string;
     }) => api.post('/cases', data),
-    
+
     logVisit: (caseId: string, data: { visitDate?: string; notes?: string }) =>
         api.post(`/cases/${caseId}/visits`, data),
-    
+
     createReport: (caseId: string, data: { description: string; imageUrl?: string }) =>
         api.post(`/cases/${caseId}/reports`, data),
-    
+
     getDoctorDailyCases: (date?: string) =>
         api.get('/doctor/daily-cases', { params: { date } }),
-    
+
     exportReportHtml: (caseId: string, reportId: string) =>
         api.get(`/cases/${caseId}/reports/${reportId}/export/html`),
-    
+
     exportReportMarkdown: (caseId: string, reportId: string) =>
         api.get(`/cases/${caseId}/reports/${reportId}/export/md`),
-    
+
     printReport: (caseId: string, reportId: string) =>
         api.get(`/cases/${caseId}/reports/${reportId}/print`),
-    
+
     updateReportImage: (caseId: string, reportId: string, imageUrl: string) =>
         api.patch(`/cases/${caseId}/reports/${reportId}/image`, { imageUrl }),
-    
+
     updateReportDescription: (caseId: string, reportId: string, description: string) =>
         api.patch(`/cases/${caseId}/reports/${reportId}/description`, { description }),
 };
@@ -110,7 +111,7 @@ export const caseAPI = {
 export const patientAPI = {
     search: (query: string) =>
         api.get('/patients/search', { params: { q: query } }),
-    
+
     getChronology: (patientId: string) =>
         api.get(`/patients/${patientId}/chronology`),
 };
@@ -130,15 +131,15 @@ export const referralAPI = {
         phone?: string;
         percentage?: number;
     }) => api.post('/referral/doctors', data),
-    
+
     listDoctors: () => api.get('/referral/doctors'),
-    
+
     getDoctorReport: (doctorId: string, params?: { startDate?: string; endDate?: string }) =>
         api.get(`/referral/doctors/${doctorId}/report`, { params }),
-    
+
     exportDoctorPDF: (doctorId: string) =>
         api.get(`/referral/doctors/${doctorId}/export/pdf`, { responseType: 'blob' }),
-    
+
     exportDashboard: (format: 'pdf' | 'xlsx') =>
         api.get('/referral/dashboard/export', { params: { format }, responseType: 'blob' }),
 };
@@ -147,16 +148,16 @@ export const referralAPI = {
 export const collectionAPI = {
     getCollection: (params?: { startDate?: string; endDate?: string }) =>
         api.get('/collection', { params }),
-    
+
     exportPDF: (params?: { startDate?: string; endDate?: string }) =>
         api.get('/collection/export/pdf', { params, responseType: 'blob' }),
-    
+
     exportExcel: (params?: { startDate?: string; endDate?: string }) =>
         api.get('/collection/export/xlsx', { params, responseType: 'blob' }),
-    
+
     exportMarkdown: (params?: { startDate?: string; endDate?: string }) =>
         api.get('/collection/export/md', { params, responseType: 'blob' }),
-    
+
     exportModified: (data: { cashDeduction?: number; startDate?: string; endDate?: string }) =>
         api.post('/collection/export/modified', data, { responseType: 'blob' }),
 };
@@ -170,13 +171,13 @@ export const uploadAPI = {
             headers: { 'Content-Type': 'multipart/form-data' },
         });
     },
-    
+
     getSignedUrl: (filename: string) =>
         api.get(`/upload/file/${filename}/url`),
-    
+
     deleteFile: (filename: string) =>
         api.delete(`/upload/file/${filename}/delete`),
-    
+
     listFiles: () => api.get('/upload/files'),
 };
 
