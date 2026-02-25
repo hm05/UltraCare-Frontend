@@ -1,0 +1,119 @@
+.navbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 64px;
+    z-index: 1000;
+    transition: all 0.3s ease;
+    background: transparent;
+}
+
+.navbar.scrolled {
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.navbar-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 24px;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.logo {
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--text-primary);
+    letter-spacing: -0.02em;
+}
+
+.desktop-menu {
+    display: flex;
+    align-items: center;
+    gap: 32px;
+}
+
+.nav-link {
+    background: none;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    transition: color 0.2s ease;
+}
+
+.nav-link:hover {
+    color: var(--primary);
+}
+
+.cta-button-small {
+    background: var(--primary);
+    color: white;
+    font-size: 12px;
+    padding: 8px 16px;
+    border-radius: 999px;
+    font-weight: 500;
+    transition: background 0.2s ease;
+}
+
+.cta-button-small:hover {
+    background: var(--primary-hover);
+}
+
+.mobile-menu-btn {
+    display: none;
+}
+
+.mobile-menu-btn button {
+    background: none;
+    color: var(--text-primary);
+}
+
+.mobile-menu {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    overflow: hidden;
+}
+
+.mobile-menu-content {
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.mobile-nav-link {
+    background: none;
+    text-align: left;
+    font-size: 18px;
+    font-weight: 500;
+    color: var(--text-primary);
+    display: block;
+    width: 100%;
+    padding: 8px 0;
+}
+
+.cta-button-mobile {
+    background: var(--primary);
+    color: white;
+    padding: 12px;
+    border-radius: 8px;
+    font-weight: 500;
+    width: 100%;
+    margin-top: 16px;
+}
+
+@media (max-width: 768px) {
+    .desktop-menu {
+        display: none;
+    }
+
+    .mobile-menu-btn {
+        display: block;
+    }
+}

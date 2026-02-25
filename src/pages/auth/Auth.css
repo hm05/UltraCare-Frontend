@@ -1,0 +1,110 @@
+.auth-page {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-6);
+    background: var(--bg-secondary);
+}
+
+.auth-card {
+    max-width: 440px;
+    width: 100%;
+    padding: var(--space-10);
+}
+
+.auth-header {
+    text-align: center;
+    margin-bottom: var(--space-8);
+}
+
+.auth-logo {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-3);
+    color: var(--text-primary);
+    margin-bottom: var(--space-6);
+}
+
+.auth-header h1 {
+    font-size: var(--font-size-2xl);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    margin-bottom: var(--space-2);
+}
+
+.auth-toggle {
+    display: flex;
+    background: var(--bg-secondary);
+    padding: var(--space-1);
+    border-radius: var(--radius-md);
+    margin-bottom: var(--space-6);
+}
+
+.toggle-btn {
+    flex: 1;
+    padding: var(--space-2) var(--space-4);
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    color: var(--text-secondary);
+    transition: all var(--transition-fast);
+}
+
+.toggle-btn.active {
+    background: var(--bg-card);
+    color: var(--text-primary);
+    box-shadow: var(--shadow-sm);
+}
+
+.auth-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+}
+
+.auth-submit {
+    width: 100%;
+    margin-top: var(--space-2);
+}
+
+.auth-footer {
+    text-align: center;
+    margin-top: var(--space-6);
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+}
+
+.auth-footer a {
+    font-weight: 600;
+}
+
+/* Password visibility toggle */
+.input-with-icon {
+    position: relative;
+}
+
+.input-with-icon .form-input {
+    padding-right: 44px;
+}
+
+.input-icon-btn {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    padding: var(--space-1);
+    border-radius: var(--radius-sm);
+    color: var(--text-tertiary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    transition: color var(--transition-fast);
+}
+
+.input-icon-btn:hover {
+    color: var(--text-primary);
+}
