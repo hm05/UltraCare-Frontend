@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import {
     LayoutDashboard, Search, FilePlus, DollarSign, Users,
-    Building2, Sun, Moon, LogOut, ChevronRight
+    Building2, Sun, Moon, LogOut, ChevronRight, Activity
 } from 'lucide-react';
 import './AppLayout.css';
 
@@ -27,6 +27,7 @@ export default function AppLayout() {
         { path: '/create-case', label: 'Create Case', icon: FilePlus },
         { path: '/collection', label: 'Collection Data', icon: DollarSign },
         { path: '/referrals', label: 'Referral Data', icon: Users },
+        { path: '/logs', label: 'Activity Logs', icon: Activity },
         { path: '/settings', label: 'Organisation', icon: Building2 },
     ];
 
@@ -43,7 +44,15 @@ export default function AppLayout() {
             <aside className="sidebar">
                 <div className="sidebar-header">
                     <Link to="/dashboard" className="sidebar-logo">
-                        <img src={theme === 'light' ? '/logo-light-mode.svg' : '/logo-dark-mode.svg'} alt="UltraCare" className="logo-img" />
+                        <img
+                            src={sidebarCollapsed ? `/icon-${theme}-mode.svg` : `/logo-${theme}-mode.svg`}
+                            alt="UltraCare"
+                            className="logo-img"
+                            style={{
+                                height: sidebarCollapsed ? '32px' : '40px',
+                                transition: 'all 0.2s ease-in-out'
+                            }}
+                        />
                     </Link>
                     <button
                         className="btn-icon sidebar-collapse-btn"

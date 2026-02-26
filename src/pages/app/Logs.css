@@ -1,0 +1,124 @@
+.logs-container {
+    padding: var(--space-6);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6);
+    max-width: 1000px;
+}
+
+.logs-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.filter-group {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    background: var(--bg-card);
+    padding: var(--space-2) var(--space-4);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border);
+}
+
+.filter-select {
+    background: transparent;
+    border: none;
+    color: var(--text-primary);
+    outline: none;
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+}
+
+.logs-main {
+    padding: var(--space-4);
+}
+
+.logs-timeline {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+}
+
+.log-row {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-4);
+    padding-bottom: var(--space-4);
+    border-bottom: 1px solid var(--border);
+}
+
+.log-row:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.log-icon-container {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-full);
+    background: var(--bg-hover);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.log-details {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.log-actor {
+    font-size: var(--font-size-sm);
+    color: var(--text-primary);
+}
+
+.log-role {
+    color: var(--text-secondary);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-left: 6px;
+}
+
+.log-action {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+}
+
+.action-tag {
+    font-weight: 500;
+    color: var(--text-primary);
+    margin-right: 6px;
+}
+
+.action-context {
+    opacity: 0.8;
+}
+
+.log-time {
+    white-space: nowrap;
+    padding-top: 4px;
+}
+
+/* Color overrides for Lucide Icons */
+.text-blue {
+    color: #3b82f6;
+}
+
+.text-yellow {
+    color: #eab308;
+}
+
+.text-green {
+    color: #22c55e;
+}
+
+.text-gray {
+    color: #9ca3af;
+}

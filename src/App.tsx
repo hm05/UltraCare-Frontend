@@ -23,6 +23,7 @@ import ReferralData from './pages/app/ReferralData';
 import OrgSettings from './pages/app/OrgSettings';
 import CaseDetail from './pages/app/CaseDetail';
 import ReferralDoctorDetail from './pages/app/ReferralDoctorDetail';
+import Logs from './pages/app/Logs';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
@@ -69,6 +70,7 @@ function App() {
           <Route path="/collection" element={<DoctorOnlyRoute><CollectionData /></DoctorOnlyRoute>} />
           <Route path="/referrals" element={<DoctorOnlyRoute><ReferralData /></DoctorOnlyRoute>} />
           <Route path="/referral/:doctorId" element={<DoctorOnlyRoute><ReferralDoctorDetail /></DoctorOnlyRoute>} />
+          <Route path="/logs" element={<DoctorOnlyRoute><Logs /></DoctorOnlyRoute>} />
           <Route path="/settings" element={<DoctorOnlyRoute><OrgSettings /></DoctorOnlyRoute>} />
         </Route>
 

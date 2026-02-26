@@ -14,6 +14,8 @@ export const casesApi = {
         client.get(`/cases/${caseId}/reports/${reportId}/export/html`, { responseType: 'text' }),
     exportReportMd: (caseId: string, reportId: string) =>
         client.get(`/cases/${caseId}/reports/${reportId}/export/md`, { responseType: 'text' }),
+    emailReport: (caseId: string, reportId: string, email: string) =>
+        client.post(`/cases/${caseId}/reports/${reportId}/email`, { email }),
     printReport: (caseId: string, reportId: string) =>
         client.get(`/cases/${caseId}/reports/${reportId}/print`, { responseType: 'text' }),
     updateReportImage: (caseId: string, reportId: string, imageUrl: string) =>

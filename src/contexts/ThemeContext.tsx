@@ -19,6 +19,12 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     useEffect(() => {
         document.documentElement.setAttribute('data-theme', theme);
         localStorage.setItem('theme', theme);
+
+        // Dynamically update the browser favicon to match the selected theme
+        const favicon = document.querySelector("link[rel~='icon']") as HTMLLinkElement;
+        if (favicon) {
+            favicon.href = theme === 'dark' ? '/icon-dark-mode.svg' : '/icon-light-mode.svg';
+        }
     }, [theme]);
 
     const toggleTheme = useCallback(() => {

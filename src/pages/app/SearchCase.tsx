@@ -40,6 +40,16 @@ export default function SearchCase() {
         loadCases(query, page, limit);
     }, [page, limit]);
 
+    // Fast, realtime type-to-search debounce
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setPage(1);
+            loadCases(query, 1, limit);
+        }, 300);
+        return () => clearTimeout(timer);
+    }, [query]);
+
+    // Standard Submit Form Handler
     const handleSearch = (e?: React.FormEvent) => {
         e?.preventDefault();
         setPage(1);
@@ -59,7 +69,7 @@ export default function SearchCase() {
                     <SearchIcon size={20} className="search-icon" />
                     <input
                         className="search-input"
-                        placeholder="Search by patient name or case number..."
+                        placeholder="Search by UC-101 Case ID or Patient Name..."
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
                     />
