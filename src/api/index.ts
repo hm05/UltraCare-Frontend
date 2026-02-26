@@ -2,6 +2,9 @@ import client from './client';
 
 export const casesApi = {
     create: (data: any) => client.post('/cases', data),
+    list: (params?: { q?: string; page?: number; limit?: number }) =>
+        client.get('/cases', { params }),
+    getDetail: (caseId: string) => client.get(`/cases/${caseId}`),
     edit: (caseId: string, data: any) => client.put(`/cases/${caseId}`, data),
     delete: (caseId: string) => client.delete(`/cases/${caseId}`),
     logVisit: (caseId: string, data: any) => client.post(`/cases/${caseId}/visits`, data),
@@ -93,4 +96,14 @@ export const contactApi = {
 export const userApi = {
     me: () => client.get('/me'),
     profile: () => client.get('/profile'),
+    updateProfile: (data: { firstName?: string; lastName?: string; phone?: string }) =>
+        client.put('/profile', data),
+    updateProfilePicture: (file: File) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('folder', 'profile-pictures');
+        return client.post('/profile/picture', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+        });
+    },
 };

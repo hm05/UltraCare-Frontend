@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { casesApi } from '../../api';
+import { casesApi, referralApi } from '../../api';
 import toast from 'react-hot-toast';
 import './CreateCase.css';
 
@@ -8,9 +8,21 @@ const SERVICE_TYPES = ['Sonography', 'Obs. Sonography', 'X-Ray', 'C.T.', 'M.R.I.
 const PAYMENT_MODES = ['Cash', 'UPI', 'Card', 'Cheque', 'NEFT', 'Other'] as const;
 const SEX_OPTIONS = ['Male', 'Female', 'Other'] as const;
 
+/** Compute years + months from a date-of-birth string. */
+function calcAge(dob: string): { years: number; months: number } {
+    const birth = new Date(dob);
+    const today = new Date();
+    let years = today.getFullYear() - birth.getFullYear();
+    let months = today.getMonth() - birth.getMonth();
+    if (today.getDate() < birth.getDate()) months--;
+    if (months < 0) { years--; months += 12; }
+    return { years: Math.max(0, years), months: Math.max(0, months) };
+}
+
 export default function CreateCase() {
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
+    const [referralDoctors, setReferralDoctors] = useState<{ id: string; doctor_name: string }[]>([]);
     const [form, setForm] = useState({
         // Patient
         name: '', sex: 'Male' as string, dateOfBirth: '', ageYears: '', ageMonths: '',
@@ -22,8 +34,30 @@ export default function CreateCase() {
         amount: '', paymentMode: 'Cash' as string,
     });
 
-    const update = (key: string, val: string) => setForm({ ...form, [key]: val });
+    // Fetch referral doctors on mount
+    useEffect(() => {
+        referralApi.list().then(res => {
+            setReferralDoctors(res.data.doctors ?? res.data ?? []);
+        }).catch(() => { /* no referral doctors yet */ });
+    }, []);
+
+    const update = (key: string, val: string) => setForm(prev => ({ ...prev, [key]: val }));
     const isFemale = form.sex === 'Female';
+
+    /** When DOB changes, auto-fill age fields. */
+    const handleDOBChange = (dob: string) => {
+        if (dob) {
+            const { years, months } = calcAge(dob);
+            setForm(prev => ({
+                ...prev,
+                dateOfBirth: dob,
+                ageYears: String(years),
+                ageMonths: String(months),
+            }));
+        } else {
+            setForm(prev => ({ ...prev, dateOfBirth: '', ageYears: '', ageMonths: '' }));
+        }
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -63,7 +97,24 @@ export default function CreateCase() {
             toast.success('Case created successfully!');
             navigate('/dashboard');
         } catch (err: any) {
-            toast.error(err.response?.data?.error || 'Failed to create case');
+            const data = err.response?.data;
+            if (data?.details) {
+                // Parse per-field validation errors from the backend
+                const messages: string[] = [];
+                for (const [field, errors] of Object.entries(data.details)) {
+                    if (Array.isArray(errors)) {
+                        const label = field.replace(/([A-Z])/g, ' $1').replace(/^./, (s: string) => s.toUpperCase());
+                        messages.push(`${label}: ${errors.join(', ')}`);
+                    }
+                }
+                if (messages.length > 0) {
+                    toast.error(messages.join('\n'), { duration: 5000, style: { whiteSpace: 'pre-line' } });
+                } else {
+                    toast.error(data.error || 'Validation failed');
+                }
+            } else {
+                toast.error(data?.error || 'Failed to create case');
+            }
         } finally {
             setLoading(false);
         }
@@ -84,9 +135,9 @@ export default function CreateCase() {
                         </div>
                     </div>
                     <div className="form-row">
-                        <div className="form-group"><label className="form-label">Date of Birth</label><input className="form-input" type="date" value={form.dateOfBirth} onChange={(e) => update('dateOfBirth', e.target.value)} /></div>
-                        <div className="form-group"><label className="form-label">Age (Years)</label><input className="form-input" type="number" placeholder="0" value={form.ageYears} onChange={(e) => update('ageYears', e.target.value)} /></div>
-                        <div className="form-group"><label className="form-label">Age (Months)</label><input className="form-input" type="number" placeholder="0" value={form.ageMonths} onChange={(e) => update('ageMonths', e.target.value)} /></div>
+                        <div className="form-group"><label className="form-label">Date of Birth</label><input className="form-input" type="date" value={form.dateOfBirth} onChange={(e) => handleDOBChange(e.target.value)} /></div>
+                        <div className="form-group"><label className="form-label">Age (Years)</label><input className="form-input" type="number" placeholder="Auto from DOB" value={form.ageYears} onChange={(e) => update('ageYears', e.target.value)} /></div>
+                        <div className="form-group"><label className="form-label">Age (Months)</label><input className="form-input" type="number" placeholder="Auto from DOB" value={form.ageMonths} onChange={(e) => update('ageMonths', e.target.value)} /></div>
                     </div>
                     <div className="form-group"><label className="form-label">Address Line 1 *</label><input className="form-input" placeholder="Street address" value={form.addressLine1} onChange={(e) => update('addressLine1', e.target.value)} required /></div>
                     <div className="form-row">
@@ -136,7 +187,14 @@ export default function CreateCase() {
                     </div>
                     <div className="form-row">
                         <div className="form-group"><label className="form-label">Amount (₹)</label><input className="form-input" type="number" placeholder="Auto from pricing" value={form.amount} onChange={(e) => update('amount', e.target.value)} /></div>
-                        <div className="form-group"><label className="form-label">Referred By</label><input className="form-input" placeholder="Dr. name" value={form.referredBy} onChange={(e) => update('referredBy', e.target.value)} /></div>
+                        <div className="form-group"><label className="form-label">Referred By</label>
+                            <select className="form-input" value={form.referredBy} onChange={(e) => update('referredBy', e.target.value)}>
+                                <option value="">None</option>
+                                {referralDoctors.map(d => (
+                                    <option key={d.id} value={d.doctor_name}>{d.doctor_name}</option>
+                                ))}
+                            </select>
+                        </div>
                         <div className="form-group"><label className="form-label">Attending Staff</label><input className="form-input" placeholder="Staff name" value={form.attendingStaff} onChange={(e) => update('attendingStaff', e.target.value)} /></div>
                     </div>
                 </div>

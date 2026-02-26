@@ -21,11 +21,19 @@ import CreateCase from './pages/app/CreateCase';
 import CollectionData from './pages/app/CollectionData';
 import ReferralData from './pages/app/ReferralData';
 import OrgSettings from './pages/app/OrgSettings';
+import CaseDetail from './pages/app/CaseDetail';
+import ReferralDoctorDetail from './pages/app/ReferralDoctorDetail';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
   if (isLoading) return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}><div className="loader"></div></div>;
   if (!isAuthenticated) return <Navigate to="/login" replace />;
+  return <>{children}</>;
+}
+
+function DoctorOnlyRoute({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth();
+  if (user?.role === 'staff') return <Navigate to="/dashboard" replace />;
   return <>{children}</>;
 }
 
@@ -56,9 +64,12 @@ function App() {
           <Route path="/dashboard" element={<DashboardRouter />} />
           <Route path="/search" element={<SearchCase />} />
           <Route path="/create-case" element={<CreateCase />} />
-          <Route path="/collection" element={<CollectionData />} />
-          <Route path="/referrals" element={<ReferralData />} />
-          <Route path="/settings" element={<OrgSettings />} />
+          <Route path="/case/:caseId" element={<CaseDetail />} />
+          {/* Doctor-only routes */}
+          <Route path="/collection" element={<DoctorOnlyRoute><CollectionData /></DoctorOnlyRoute>} />
+          <Route path="/referrals" element={<DoctorOnlyRoute><ReferralData /></DoctorOnlyRoute>} />
+          <Route path="/referral/:doctorId" element={<DoctorOnlyRoute><ReferralDoctorDetail /></DoctorOnlyRoute>} />
+          <Route path="/settings" element={<DoctorOnlyRoute><OrgSettings /></DoctorOnlyRoute>} />
         </Route>
 
         {/* Catch all */}

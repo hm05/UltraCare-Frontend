@@ -9,6 +9,7 @@ interface User {
     firstName: string;
     lastName: string;
     organizationId: string | null;
+    profilePictureUrl?: string | null;
 }
 
 interface AuthContextType {
@@ -21,6 +22,7 @@ interface AuthContextType {
     staffLogin: (username: string, password: string) => Promise<{ changePasswordRequired?: boolean }>;
     register: (data: any) => Promise<void>;
     logout: () => void;
+    updateUser: (updates: Partial<User>) => void;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -53,6 +55,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             firstName: data.user.firstName,
             lastName: data.user.lastName,
             organizationId: data.user.organizationId,
+            profilePictureUrl: data.user.profilePictureUrl ?? null,
         };
         setToken(data.accessToken);
         setUser(userData);
@@ -70,6 +73,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             firstName: data.user.firstName,
             lastName: data.user.lastName,
             organizationId: data.user.organizationId,
+            profilePictureUrl: data.user.profilePictureUrl ?? null,
         };
         setToken(data.accessToken);
         setUser(userData);
@@ -90,6 +94,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         localStorage.removeItem('user');
     }, []);
 
+    const updateUser = useCallback((updates: Partial<User>) => {
+        setUser(prev => {
+            if (!prev) return prev;
+            const updated = { ...prev, ...updates };
+            localStorage.setItem('user', JSON.stringify(updated));
+            return updated;
+        });
+    }, []);
+
     return (
         <AuthContext.Provider
             value={{
@@ -102,6 +115,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 staffLogin,
                 register,
                 logout,
+                updateUser,
             }}
         >
             {children}

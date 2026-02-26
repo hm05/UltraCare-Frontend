@@ -1,50 +1,65 @@
-import React, { useState } from 'react';
-import { patientsApi } from '../../api';
-import { Search as SearchIcon } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { casesApi } from '../../api';
+import { Search as SearchIcon, ChevronLeft, ChevronRight } from 'lucide-react';
+import toast from 'react-hot-toast';
 import './Search.css';
 
-export default function SearchCase() {
-    const [query, setQuery] = useState('');
-    const [searchType, setSearchType] = useState<'name' | 'phone' | 'caseNumber'>('name');
-    const [results, setResults] = useState<any[]>([]);
-    const [loading, setLoading] = useState(false);
-    const [searched, setSearched] = useState(false);
+const PAGE_SIZE_OPTIONS = [10, 20, 50];
 
-    const handleSearch = async (e?: React.FormEvent) => {
-        e?.preventDefault();
-        if (!query.trim()) return;
+export default function SearchCase() {
+    const navigate = useNavigate();
+    const [query, setQuery] = useState('');
+    const [cases, setCases] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [page, setPage] = useState(1);
+    const [limit, setLimit] = useState(10);
+    const [total, setTotal] = useState(0);
+    const [totalPages, setTotalPages] = useState(1);
+
+    const loadCases = useCallback(async (searchQuery?: string, p?: number, l?: number) => {
         setLoading(true);
-        setSearched(true);
         try {
-            const params: any = {};
-            if (searchType === 'name') params.q = query;
-            else if (searchType === 'phone') params.phone = query;
-            else params.caseNumber = query;
-            const res = await patientsApi.search(params);
-            setResults(res.data.results || []);
+            const res = await casesApi.list({
+                q: searchQuery || undefined,
+                page: p ?? page,
+                limit: l ?? limit,
+            });
+            setCases(res.data.cases || []);
+            setTotal(res.data.total || 0);
+            setTotalPages(res.data.totalPages || 1);
         } catch (err) {
             console.error(err);
+            toast.error('Failed to load cases');
         } finally {
             setLoading(false);
         }
+    }, [page, limit]);
+
+    useEffect(() => {
+        loadCases(query, page, limit);
+    }, [page, limit]);
+
+    const handleSearch = (e?: React.FormEvent) => {
+        e?.preventDefault();
+        setPage(1);
+        loadCases(query, 1, limit);
+    };
+
+    const handlePageSizeChange = (newLimit: number) => {
+        setLimit(newLimit);
+        setPage(1);
+        loadCases(query, 1, newLimit);
     };
 
     return (
         <div className="search-page">
             <form onSubmit={handleSearch} className="search-bar card">
-                <div className="search-tabs">
-                    {(['name', 'phone', 'caseNumber'] as const).map((t) => (
-                        <button key={t} type="button" className={`tab ${searchType === t ? 'active' : ''}`} onClick={() => setSearchType(t)}>
-                            {t === 'caseNumber' ? 'Case #' : t.charAt(0).toUpperCase() + t.slice(1)}
-                        </button>
-                    ))}
-                </div>
                 <div className="search-input-wrapper">
                     <SearchIcon size={20} className="search-icon" />
                     <input
                         className="search-input"
-                        placeholder={searchType === 'name' ? 'Search by patient name...' : searchType === 'phone' ? 'Search by phone number...' : 'Search by case number (UC-XXXXX)...'}
+                        placeholder="Search by patient name or case number..."
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
                     />
@@ -54,47 +69,126 @@ export default function SearchCase() {
                 </div>
             </form>
 
-            {searched && (
-                <div className="search-results">
-                    {results.length > 0 ? (
-                        searchType === 'caseNumber' ? (
-                            <div className="table-wrapper card">
-                                <table>
-                                    <thead><tr><th>Case #</th><th>Patient</th><th>Service</th><th>Amount</th><th>Date</th></tr></thead>
-                                    <tbody>
-                                        {results.map((c: any) => (
-                                            <tr key={c.id}>
-                                                <td><span className="badge badge-primary">{c.case_number}</span></td>
-                                                <td>{c.patient?.name ?? '—'}</td>
-                                                <td>{c.service_type}</td>
-                                                <td>₹{Number(c.amount ?? 0).toLocaleString()}</td>
-                                                <td className="text-sm text-tertiary">{new Date(c.created_at).toLocaleDateString('en-IN')}</td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        ) : (
-                            <div className="patient-grid">
-                                {results.map((p: any) => (
-                                    <Link to={`/patient/${p.id}`} key={p.id} className="patient-card card">
-                                        <div className="patient-avatar">{p.name?.charAt(0)}</div>
-                                        <div className="patient-info">
-                                            <h3>{p.name}</h3>
-                                            <p className="text-sm text-secondary">{p.sex} · {p.age_years ? `${p.age_years}y` : ''} {p.age_months ? `${p.age_months}m` : ''}</p>
-                                            <p className="text-xs text-tertiary">{p.phone} · {p.city || p.address_line_1 || ''}</p>
-                                        </div>
-                                    </Link>
-                                ))}
-                            </div>
-                        )
-                    ) : (
-                        <div className="no-results card">
-                            <p className="text-secondary">No results found for "{query}"</p>
-                        </div>
-                    )}
+            <div className="widget cases-widget" style={{ marginTop: 'var(--space-4)' }}>
+                <div className="widget-header">
+                    <h3 className="widget-title">
+                        All Cases <span className="text-secondary text-sm" style={{ fontWeight: 400 }}>({total})</span>
+                    </h3>
                 </div>
-            )}
+
+                {loading ? (
+                    <div style={{ display: 'flex', justifyContent: 'center', padding: 'var(--space-10)' }}>
+                        <div className="loader"></div>
+                    </div>
+                ) : cases.length > 0 ? (
+                    <div className="table-wrapper">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Case #</th>
+                                    <th>Patient</th>
+                                    <th>Phone</th>
+                                    <th>Service</th>
+                                    <th>Amount</th>
+                                    <th>Payment</th>
+                                    <th>Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {cases.map((c: any) => (
+                                    <tr key={c.id} onClick={() => navigate(`/case/${c.id}`)} style={{ cursor: 'pointer' }}>
+                                        <td><span className="badge badge-primary">{c.case_number}</span></td>
+                                        <td className="font-semibold">{c.patient?.name ?? '—'}</td>
+                                        <td className="text-secondary text-sm">{c.patient?.phone ?? '—'}</td>
+                                        <td>{c.service_type}</td>
+                                        <td>₹{Number(c.amount ?? 0).toLocaleString()}</td>
+                                        <td>
+                                            <span className={`badge ${c.payment_mode === 'Cash' ? 'badge-success' : 'badge-warning'}`}>
+                                                {c.payment_mode}
+                                            </span>
+                                        </td>
+                                        <td className="text-sm text-tertiary">
+                                            {new Date(c.created_at).toLocaleDateString('en-IN', {
+                                                day: '2-digit', month: 'short', year: 'numeric',
+                                            })}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                ) : (
+                    <p className="text-secondary text-center" style={{ padding: 'var(--space-10)' }}>
+                        {query ? `No cases found for "${query}"` : 'No cases created yet'}
+                    </p>
+                )}
+
+                {/* Pagination */}
+                {totalPages > 0 && (
+                    <div style={{
+                        display: 'flex', justifyContent: 'flex-end', alignItems: 'center',
+                        gap: 'var(--space-4)', padding: 'var(--space-4) var(--space-4) var(--space-2)',
+                        borderTop: '1px solid var(--border)',
+                    }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                            <button
+                                className="btn-icon"
+                                onClick={() => setPage(p => Math.max(1, p - 1))}
+                                disabled={page <= 1}
+                                style={{ opacity: page <= 1 ? 0.3 : 1 }}
+                            >
+                                <ChevronLeft size={18} />
+                            </button>
+                            {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+                                let pageNum: number;
+                                if (totalPages <= 5) {
+                                    pageNum = i + 1;
+                                } else if (page <= 3) {
+                                    pageNum = i + 1;
+                                } else if (page >= totalPages - 2) {
+                                    pageNum = totalPages - 4 + i;
+                                } else {
+                                    pageNum = page - 2 + i;
+                                }
+                                return (
+                                    <button
+                                        key={pageNum}
+                                        onClick={() => setPage(pageNum)}
+                                        style={{
+                                            width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            borderRadius: 'var(--radius-md)', border: '1px solid var(--border)',
+                                            background: page === pageNum ? 'var(--accent)' : 'var(--bg)',
+                                            color: page === pageNum ? '#fff' : 'var(--text)',
+                                            cursor: 'pointer', fontWeight: page === pageNum ? 600 : 400,
+                                            fontSize: 'var(--font-size-sm)',
+                                        }}
+                                    >
+                                        {pageNum}
+                                    </button>
+                                );
+                            })}
+                            <button
+                                className="btn-icon"
+                                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                                disabled={page >= totalPages}
+                                style={{ opacity: page >= totalPages ? 0.3 : 1 }}
+                            >
+                                <ChevronRight size={18} />
+                            </button>
+                        </div>
+                        <select
+                            className="form-input"
+                            value={limit}
+                            onChange={(e) => handlePageSizeChange(Number(e.target.value))}
+                            style={{ width: 'auto', minWidth: 90, fontSize: 'var(--font-size-sm)', padding: '6px 10px' }}
+                        >
+                            {PAGE_SIZE_OPTIONS.map(s => (
+                                <option key={s} value={s}>{s}/Page</option>
+                            ))}
+                        </select>
+                    </div>
+                )}
+            </div>
         </div>
     );
 }
