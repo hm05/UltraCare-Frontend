@@ -1,15 +1,21 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Building2 } from 'lucide-react';
+import { Building2, Upload, X } from 'lucide-react';
 import { authApi } from '../../api/auth';
+import { useAuth } from '../../contexts/AuthContext';
+import client from '../../api/client';
 import toast from 'react-hot-toast';
 import '../auth/Auth.css';
 
 export default function SetupOrganization() {
     const navigate = useNavigate();
+    const { updateUser } = useAuth();
     const [loading, setLoading] = useState(false);
     const [step, setStep] = useState(1);
+    const [logoFile, setLogoFile] = useState<File | null>(null);
+    const [logoPreview, setLogoPreview] = useState<string | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
     const [form, setForm] = useState({
         organizationName: '',
         organizationAddress: '',
@@ -27,6 +33,24 @@ export default function SetupOrganization() {
 
     const update = (key: string, val: string) => setForm({ ...form, [key]: val });
 
+    const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            if (file.size > 2 * 1024 * 1024) {
+                toast.error('Logo must be less than 2MB');
+                return;
+            }
+            setLogoFile(file);
+            setLogoPreview(URL.createObjectURL(file));
+        }
+    };
+
+    const removeLogo = () => {
+        setLogoFile(null);
+        setLogoPreview(null);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!form.organizationName) {
@@ -35,6 +59,18 @@ export default function SetupOrganization() {
         }
         setLoading(true);
         try {
+            // Upload logo if selected
+            let logoUrl: string | undefined;
+            if (logoFile) {
+                const formData = new FormData();
+                formData.append('file', logoFile);
+                formData.append('folder', 'logos');
+                const uploadRes = await client.post('/upload/file', formData, {
+                    headers: { 'Content-Type': 'multipart/form-data' },
+                });
+                logoUrl = uploadRes.data.url;
+            }
+
             const pricing: any = {};
             if (form.sonographyPrice) pricing.sonographyPrice = Number(form.sonographyPrice);
             if (form.obsSonographyPrice) pricing.obsSonographyPrice = Number(form.obsSonographyPrice);
@@ -43,24 +79,22 @@ export default function SetupOrganization() {
             if (form.xrayPrice) pricing.xrayPrice = Number(form.xrayPrice);
             if (form.defaultPrice) pricing.defaultPrice = Number(form.defaultPrice);
 
-            await authApi.setupOrganization({
+            const res = await authApi.setupOrganization({
                 organizationName: form.organizationName,
                 organizationAddress: form.organizationAddress || undefined,
                 organizationPhone: form.organizationPhone || undefined,
                 organizationEmail: form.organizationEmail || undefined,
                 registrationNumber: form.registrationNumber || undefined,
                 website: form.website || undefined,
+                logoUrl,
                 pricing: Object.keys(pricing).length > 0 ? pricing : undefined,
             });
 
             toast.success('Organization setup complete!');
-            // Refresh user info
-            const savedUser = localStorage.getItem('user');
-            if (savedUser) {
-                const user = JSON.parse(savedUser);
-                user.organizationId = 'set'; // will refresh on next API call
-                localStorage.setItem('user', JSON.stringify(user));
-            }
+
+            // Update AuthContext user so login redirect works correctly
+            updateUser({ organizationId: res.data.organizationId });
+
             navigate('/dashboard');
         } catch (err: any) {
             toast.error(err.response?.data?.error || 'Setup failed');
@@ -116,6 +150,35 @@ export default function SetupOrganization() {
                                     <input className="form-input" placeholder="https://clinic.com" value={form.website} onChange={(e) => update('website', e.target.value)} />
                                 </div>
                             </div>
+
+                            {/* Logo Upload */}
+                            <div className="form-group">
+                                <label className="form-label">Hospital Logo (Optional)</label>
+                                <p className="text-sm text-secondary" style={{ marginBottom: 'var(--space-2)' }}>This logo will appear on all generated reports</p>
+                                {logoPreview ? (
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', padding: 'var(--space-3)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
+                                        <img src={logoPreview} alt="Logo preview" style={{ width: 64, height: 64, objectFit: 'contain', borderRadius: 'var(--radius-sm)' }} />
+                                        <span className="text-sm" style={{ flex: 1 }}>{logoFile?.name}</span>
+                                        <button type="button" onClick={removeLogo} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-tertiary)' }}>
+                                            <X size={18} />
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div
+                                        onClick={() => fileInputRef.current?.click()}
+                                        style={{
+                                            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-2)',
+                                            padding: 'var(--space-4)', border: '2px dashed var(--border)', borderRadius: 'var(--radius-md)',
+                                            cursor: 'pointer', color: 'var(--text-tertiary)', transition: 'border-color 0.2s',
+                                        }}
+                                    >
+                                        <Upload size={24} />
+                                        <span className="text-sm">Click to upload logo (PNG, JPG — max 2MB)</span>
+                                    </div>
+                                )}
+                                <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/svg+xml" style={{ display: 'none' }} onChange={handleLogoChange} />
+                            </div>
+
                             <button type="button" className="btn btn-primary btn-lg auth-submit" onClick={() => setStep(2)}>Next: Service Pricing</button>
                         </>
                     )}

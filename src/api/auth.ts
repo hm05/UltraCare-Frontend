@@ -22,6 +22,7 @@ export const authApi = {
         organizationEmail?: string;
         registrationNumber?: string;
         website?: string;
+        logoUrl?: string;
         pricing?: {
             sonographyPrice?: number;
             obsSonographyPrice?: number;

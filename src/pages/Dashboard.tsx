@@ -1,15 +1,30 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { casesApi, organizationApi } from '../api';
 import { useAuth } from '../contexts/AuthContext';
 import { CalendarDays, TrendingUp, Users, Activity } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import './Dashboard.css';
 
 const CHART_COLORS = ['#0071E3', '#30D158', '#FF9F0A', '#FF3B30', '#AF52DE', '#FF6482'];
 
+// Generate last 7 days labels
+function getLast7Days(): { day: string; dateStr: string }[] {
+    const days: { day: string; dateStr: string }[] = [];
+    for (let i = 6; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        days.push({
+            day: d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }),
+            dateStr: d.toISOString().slice(0, 10),
+        });
+    }
+    return days;
+}
+
 export default function DoctorDashboard() {
     const { } = useAuth();
+    const navigate = useNavigate();
     const [todayCases, setTodayCases] = useState<any[]>([]);
     const [dashboard, setDashboard] = useState<any>(null);
     const [loading, setLoading] = useState(true);
@@ -37,11 +52,26 @@ export default function DoctorDashboard() {
         ? Object.entries(dashboard.serviceBreakdown).map(([name, val]: any) => ({ name, value: val.amount, count: val.count }))
         : [];
 
-    // Mock patient count trend (in production, derive from API)
-    const patientTrend = Array.from({ length: 7 }, (_, i) => ({
-        day: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][i],
-        count: Math.floor(Math.random() * 15) + 3,
-    }));
+    // Build patient trend for last 7 days — always show, even if all zeros
+    const patientTrend = useMemo(() => {
+        const last7 = getLast7Days();
+        const backendTrend: any[] = dashboard?.weeklyTrend || [];
+
+        return last7.map(({ day, dateStr }) => {
+            // Try to match from backend data
+            const match = backendTrend.find((t: any) => {
+                if (t.date) return t.date === dateStr;
+                if (t.day) return t.day === day;
+                return false;
+            });
+            // Count today's cases if dateStr matches today
+            const today = new Date().toISOString().slice(0, 10);
+            if (dateStr === today && todayCases.length > 0) {
+                return { day, count: todayCases.length };
+            }
+            return { day, count: match?.count ?? 0 };
+        });
+    }, [dashboard, todayCases]);
 
     if (loading) {
         return (
@@ -135,8 +165,8 @@ export default function DoctorDashboard() {
                     <ResponsiveContainer width="100%" height={220}>
                         <LineChart data={patientTrend}>
                             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                            <XAxis dataKey="day" tick={{ fontSize: 12, fill: 'var(--text-tertiary)' }} />
-                            <YAxis tick={{ fontSize: 12, fill: 'var(--text-tertiary)' }} />
+                            <XAxis dataKey="day" tick={{ fontSize: 11, fill: 'var(--text-tertiary)' }} />
+                            <YAxis tick={{ fontSize: 11, fill: 'var(--text-tertiary)' }} allowDecimals={false} domain={[0, 'auto']} />
                             <Tooltip />
                             <Line type="monotone" dataKey="count" stroke="var(--accent)" strokeWidth={2.5} dot={{ r: 4, fill: 'var(--accent)' }} activeDot={{ r: 6 }} />
                         </LineChart>
@@ -144,7 +174,7 @@ export default function DoctorDashboard() {
                 </div>
             </div>
 
-            {/* Today's Cases */}
+            {/* Today's Cases — clickable rows */}
             <div className="widget cases-widget">
                 <div className="widget-header">
                     <h3 className="widget-title">Today's Cases</h3>
@@ -165,7 +195,7 @@ export default function DoctorDashboard() {
                             </thead>
                             <tbody>
                                 {todayCases.map((c: any) => (
-                                    <tr key={c.id}>
+                                    <tr key={c.id} onClick={() => navigate(`/case/${c.id}`)} style={{ cursor: 'pointer' }}>
                                         <td><span className="badge badge-primary">{c.case_number}</span></td>
                                         <td>{c.patient?.name ?? '—'}</td>
                                         <td>{c.service_type}</td>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { organizationApi } from '../../api';
 import { authApi } from '../../api/auth';
-import { Building2, DollarSign, Users, FileText, Plus, Trash2, Save } from 'lucide-react';
+import { Building2, DollarSign, Users, FileText, Plus, Trash2, Save, Pencil } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function OrgSettings() {
@@ -11,6 +11,7 @@ export default function OrgSettings() {
     const [pricing, setPricing] = useState<any>({});
     const [staff, setStaff] = useState<any[]>([]);
     const [templates, setTemplates] = useState<any[]>([]);
+    const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
 
     // Staff creation form
     const [showAddStaff, setShowAddStaff] = useState(false);
@@ -158,8 +159,22 @@ export default function OrgSettings() {
                                 <div className="form-group"><label className="form-label">Phone</label><input className="form-input" value={newStaff.phone} onChange={(e) => setNewStaff({ ...newStaff, phone: e.target.value })} /></div>
                                 <div className="form-group"><label className="form-label">Salary (₹)</label><input className="form-input" type="number" value={newStaff.salary} onChange={(e) => setNewStaff({ ...newStaff, salary: e.target.value })} /></div>
                             </div>
-                            <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', fontSize: 'var(--font-size-sm)', cursor: 'pointer' }}>
-                                <input type="checkbox" checked={newStaff.changePasswordOnLogin} onChange={(e) => setNewStaff({ ...newStaff, changePasswordOnLogin: e.target.checked })} /> Change password on first login
+                            <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', fontSize: 'var(--font-size-sm)', cursor: 'pointer' }}>
+                                <div
+                                    onClick={() => setNewStaff({ ...newStaff, changePasswordOnLogin: !newStaff.changePasswordOnLogin })}
+                                    style={{
+                                        width: 40, height: 22, borderRadius: 11, position: 'relative', cursor: 'pointer',
+                                        background: newStaff.changePasswordOnLogin ? 'var(--accent)' : 'var(--border)',
+                                        transition: 'background 0.2s',
+                                    }}
+                                >
+                                    <div style={{
+                                        width: 18, height: 18, borderRadius: '50%', background: '#fff', position: 'absolute',
+                                        top: 2, left: newStaff.changePasswordOnLogin ? 20 : 2,
+                                        transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                                    }} />
+                                </div>
+                                Require password change on first login
                             </label>
                             <button type="submit" className="btn btn-primary btn-sm" style={{ alignSelf: 'flex-end' }}>Create Staff</button>
                         </form>
@@ -190,19 +205,88 @@ export default function OrgSettings() {
             {/* Templates */}
             {tab === 'templates' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-                    {templates.map((t: any) => (
-                        <div key={t.id} className="card" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <h3 style={{ fontSize: 'var(--font-size-md)', fontWeight: 600 }}>{t.report_type}</h3>
-                                <button className="btn btn-sm btn-primary" onClick={() => saveTemplate(t.report_type, t.template_content)}><Save size={14} /> Save</button>
+                    {editingTemplateId ? (() => {
+                        const editType = editingTemplateId;
+                        const existing = templates.find(t => t.report_type === editType);
+                        const content = existing?.template_content ?? '';
+                        return (
+                            <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <h3 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600 }}>Edit Template — {editType}</h3>
+                                    <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+                                        <button className="btn btn-sm btn-primary" onClick={() => {
+                                            const textarea = document.getElementById('template-editor') as HTMLTextAreaElement;
+                                            if (textarea) {
+                                                saveTemplate(editType, textarea.value);
+                                                // Update local state
+                                                if (existing) {
+                                                    setTemplates(templates.map(t => t.report_type === editType ? { ...t, template_content: textarea.value } : t));
+                                                } else {
+                                                    setTemplates([...templates, { id: `new-${editType}`, report_type: editType, template_content: textarea.value }]);
+                                                }
+                                            }
+                                            setEditingTemplateId(null);
+                                        }}><Save size={14} /> Save</button>
+                                        <button className="btn btn-sm btn-secondary" onClick={() => setEditingTemplateId(null)}>Cancel</button>
+                                    </div>
+                                </div>
+                                <textarea
+                                    id="template-editor"
+                                    className="form-input"
+                                    rows={20}
+                                    defaultValue={content}
+                                    placeholder={`Enter the HTML/Handlebars template for ${editType} reports...`}
+                                    style={{ fontFamily: 'monospace', fontSize: 'var(--font-size-sm)', lineHeight: 1.6 }}
+                                />
                             </div>
-                            <textarea className="form-input" rows={8} value={t.template_content} onChange={(e) => {
-                                const updated = templates.map(tt => tt.id === t.id ? { ...tt, template_content: e.target.value } : tt);
-                                setTemplates(updated);
-                            }} style={{ fontFamily: 'monospace', fontSize: 'var(--font-size-sm)' }} />
-                        </div>
-                    ))}
-                    {templates.length === 0 && <div className="card text-center text-secondary" style={{ padding: 'var(--space-10)' }}>No templates configured yet. They will be created automatically when you set up your organization.</div>}
+                        );
+                    })() : (
+                        <>
+                            <div className="card">
+                                <div style={{ marginBottom: 'var(--space-4)' }}>
+                                    <h3 style={{ fontSize: 'var(--font-size-md)', fontWeight: 600, marginBottom: 'var(--space-1)' }}>Report Templates</h3>
+                                    <p className="text-sm text-secondary">Edit the HTML/Handlebars template used for each report type</p>
+                                </div>
+                                <div className="table-wrapper">
+                                    <table>
+                                        <thead>
+                                            <tr>
+                                                <th>Service Type</th>
+                                                <th>Status</th>
+                                                <th>Last Updated</th>
+                                                <th></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {['Sonography', 'Obs. Sonography', 'X-Ray', 'C.T.', 'M.R.I.'].map(type => {
+                                                const tpl = templates.find(t => t.report_type === type);
+                                                return (
+                                                    <tr key={type}>
+                                                        <td className="font-semibold">{type}</td>
+                                                        <td>
+                                                            {tpl ? (
+                                                                <span className="badge badge-success">Configured</span>
+                                                            ) : (
+                                                                <span className="badge" style={{ background: 'var(--bg-secondary)', color: 'var(--text-tertiary)' }}>Not set</span>
+                                                            )}
+                                                        </td>
+                                                        <td className="text-sm text-tertiary">
+                                                            {tpl?.updated_at ? new Date(tpl.updated_at).toLocaleDateString('en-IN') : '—'}
+                                                        </td>
+                                                        <td>
+                                                            <button className="btn btn-sm btn-outline" onClick={() => setEditingTemplateId(type)}>
+                                                                <Pencil size={14} /> {tpl ? 'Edit' : 'Create'}
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </>
+                    )}
                 </div>
             )}
         </div>
