@@ -40,12 +40,6 @@ const Sidebar: React.FC = () => {
 
     return (
         <aside className="sidebar">
-            <div className="sidebar-header">
-                <div className="sidebar-logo">
-                    <span className="logo-icon">U</span>
-                    <span className="logo-text">UltraCare</span>
-                </div>
-            </div>
 
             <nav className="sidebar-nav">
                 {links.map((link) => (

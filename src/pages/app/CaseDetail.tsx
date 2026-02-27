@@ -33,6 +33,14 @@ export default function CaseDetail() {
     const [creatingReport, setCreatingReport] = useState(false);
     const [uploadType, setUploadType] = useState('Report');
 
+    // Email popover state
+    const [emailTarget, setEmailTarget] = useState<'self' | 'other' | null>(null);
+    const [customEmail, setCustomEmail] = useState('');
+    const [sendingEmail, setSendingEmail] = useState(false);
+
+    // Apple-styled Preview Modal
+    const [previewHtml, setPreviewHtml] = useState<string | null>(null);
+
     const loadCase = async () => {
         if (!caseId) return;
         setLoading(true);
@@ -153,22 +161,22 @@ export default function CaseDetail() {
         }
     };
 
-    const handleExport = async (format: string) => {
-        if (!reports.length) {
+    const handleExport = async (format: string, reportId?: string) => {
+        const targetReportId = reportId || (reports.length > 0 ? reports[0].id : null);
+        if (!targetReportId) {
             toast.error('No reports to export');
             return;
         }
         try {
             if (format === 'print') {
-                const res = await casesApi.printReport(caseId!, reports[0].id);
+                const res = await casesApi.printReport(caseId!, targetReportId);
                 const win = window.open('', '_blank');
                 if (win) { win.document.write(res.data); win.document.close(); win.print(); }
             } else if (format === 'html') {
-                const res = await casesApi.exportReportHtml(caseId!, reports[0].id);
-                const blob = new Blob([res.data], { type: 'text/html' });
-                window.open(URL.createObjectURL(blob));
+                const res = await casesApi.exportReportHtml(caseId!, targetReportId);
+                setPreviewHtml(res.data);
             } else if (format === 'md') {
-                const res = await casesApi.exportReportMd(caseId!, reports[0].id);
+                const res = await casesApi.exportReportMd(caseId!, targetReportId);
                 const blob = new Blob([res.data], { type: 'text/markdown' });
                 const a = document.createElement('a');
                 a.href = URL.createObjectURL(blob);
@@ -177,6 +185,29 @@ export default function CaseDetail() {
             }
         } catch (err: any) {
             toast.error(err.response?.data?.error || 'Export failed');
+        }
+    };
+
+    const handleEmailSend = async () => {
+        if (!reports.length) {
+            toast.error('No reports to email');
+            return;
+        }
+        const target = emailTarget === 'self' ? user?.email : customEmail;
+        if (!target) {
+            toast.error('Please specify an email address');
+            return;
+        }
+        setSendingEmail(true);
+        try {
+            await casesApi.emailReport(caseId!, reports[0].id, target);
+            toast.success('Email sent successfully');
+            setEmailTarget(null);
+            setCustomEmail('');
+        } catch (err: any) {
+            toast.error(err.response?.data?.error || 'Failed to send email');
+        } finally {
+            setSendingEmail(false);
         }
     };
 
@@ -307,7 +338,7 @@ export default function CaseDetail() {
                     </div>
                     <label className="btn btn-primary btn-sm" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
                         <Upload size={14} /> {uploading ? 'Uploading...' : 'Upload File'}
-                        <input type="file" accept="image/*,.pdf,.doc,.docx" onChange={handleFileUpload} style={{ display: 'none' }} disabled={uploading} />
+                        <input type="file" accept="image/*,.pdf,.doc,.docx,.dcm,application/dicom" onChange={handleFileUpload} style={{ display: 'none' }} disabled={uploading} />
                     </label>
                 </div>
 
@@ -315,10 +346,11 @@ export default function CaseDetail() {
                 {(reports.length > 0 || documents.length > 0) && (
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 'var(--space-3)', marginTop: 'var(--space-2)' }}>
                         {reports.map((r: any) => (
-                            <div key={r.id} style={{
+                            <div key={r.id} onClick={() => handleExport('html', r.id)} style={{
                                 border: '1px solid var(--border)', borderRadius: 'var(--radius-md)',
                                 padding: 'var(--space-2)', display: 'flex', flexDirection: 'column', gap: 4,
-                            }}>
+                                cursor: 'pointer'
+                            }} className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
                                 {r.image_url ? (
                                     <div style={{
                                         width: '100%', aspectRatio: '1', borderRadius: 'var(--radius-sm)',
@@ -444,7 +476,30 @@ export default function CaseDetail() {
                 <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
                     <button className="btn btn-sm btn-outline" onClick={() => handleExport('html')}><Download size={14} /> Export PDF</button>
                     <button className="btn btn-sm btn-outline" onClick={() => handleExport('print')}><Printer size={14} /> Print</button>
-                    <button className="btn btn-sm btn-outline" onClick={() => toast('Email export coming soon', { icon: '📧' })}><Mail size={14} /> Email</button>
+                    <div style={{ position: 'relative' }}>
+                        <button className="btn btn-sm btn-outline" onClick={() => setEmailTarget(emailTarget ? null : 'self')}><Mail size={14} /> Email</button>
+                        {emailTarget && (
+                            <div className="card shadow-md" style={{
+                                position: 'absolute', bottom: '100%', left: 0, marginBottom: 4, zIndex: 10,
+                                minWidth: 200, display: 'flex', flexDirection: 'column', gap: 'var(--space-2)',
+                                padding: 'var(--space-3)'
+                            }}>
+                                <select className="form-input" value={emailTarget} onChange={e => setEmailTarget(e.target.value as any)}>
+                                    <option value="self">Self (My Email)</option>
+                                    <option value="other">Other</option>
+                                </select>
+                                {emailTarget === 'other' && (
+                                    <input className="form-input" type="email" placeholder="Enter email address" value={customEmail} onChange={e => setCustomEmail(e.target.value)} />
+                                )}
+                                <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-2)' }}>
+                                    <button className="btn btn-sm btn-primary" style={{ flex: 1 }} onClick={handleEmailSend} disabled={sendingEmail}>
+                                        {sendingEmail ? 'Sending...' : 'Send'}
+                                    </button>
+                                    <button className="btn btn-sm btn-secondary" onClick={() => setEmailTarget(null)}>Cancel</button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
                     <button className="btn btn-sm btn-outline" onClick={() => handleExport('md')}><FileText size={14} /> Markdown</button>
                 </div>
                 <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
@@ -457,6 +512,55 @@ export default function CaseDetail() {
                     )}
                 </div>
             </div>
+            {/* Apple-styled Report Preview Modal */}
+            {previewHtml && (
+                <div style={{
+                    position: 'fixed', inset: 0, zIndex: 9999,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    background: 'rgba(0, 0, 0, 0.4)', backdropFilter: 'blur(10px)',
+                    animation: 'fadeIn 0.2s ease-out', padding: 'var(--space-6)'
+                }}>
+                    <div style={{
+                        background: 'var(--bg)', width: '100%', maxWidth: '900px', height: '90vh',
+                        borderRadius: 'var(--radius-lg)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+                        display: 'flex', flexDirection: 'column', overflow: 'hidden',
+                        animation: 'slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
+                    }}>
+                        {/* Modal Header */}
+                        <div style={{
+                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                            padding: 'var(--space-4) var(--space-6)', borderBottom: '1px solid var(--border)',
+                            background: 'var(--bg-secondary)', backdropFilter: 'blur(20px)'
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+                                <FileText className="text-primary" size={20} />
+                                <h2 style={{ fontSize: 'var(--font-size-md)', fontWeight: 600, margin: 0 }}>Report Preview</h2>
+                            </div>
+                            <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+                                <button className="btn btn-sm btn-primary" onClick={() => {
+                                    const win = window.open('', '_blank');
+                                    if (win) { win.document.write(previewHtml); win.document.close(); win.print(); }
+                                }}>
+                                    <Printer size={14} /> Print
+                                </button>
+                                <button className="btn-icon" onClick={() => setPreviewHtml(null)} style={{ background: 'var(--bg)', border: '1px solid var(--border)' }}>
+                                    <X size={16} className="text-secondary" />
+                                </button>
+                            </div>
+                        </div>
+                        {/* Iframe Content */}
+                        <iframe
+                            srcDoc={previewHtml}
+                            style={{ flex: 1, width: '100%', border: 'none', background: '#fff' }}
+                            title="Report Preview"
+                        />
+                    </div>
+                </div>
+            )}
+            <style>{`
+                @keyframes slideUp { from { transform: translateY(20px) scale(0.98); opacity: 0; } to { transform: translateY(0) scale(1); opacity: 1; } }
+                @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+            `}</style>
         </div>
     );
 }
