@@ -20,7 +20,7 @@ export default function PublicLayout() {
             <header className="public-header">
                 <div className="container public-header-inner">
                     <Link to="/" className="public-logo">
-                        <img src={theme === 'light' ? '/logo-light-mode.svg' : '/logo-dark-mode.svg'} alt="UltraCare" className="logo-img" />
+                        <img src={theme === 'light' ? 'https://objectstorage.ap-mumbai-1.oraclecloud.com/n/bmuzdalqtcix/b/UltraCare-assets/o/logo-light-mode.svg' : 'https://objectstorage.ap-mumbai-1.oraclecloud.com/n/bmuzdalqtcix/b/UltraCare-assets/o/logo-dark-mode.svg'} alt="UltraCare" className="logo-img" />
                     </Link>
 
                     <nav className={`public-nav ${menuOpen ? 'open' : ''}`}>
@@ -56,7 +56,7 @@ export default function PublicLayout() {
             <footer className="public-footer">
                 <div className="container public-footer-inner">
                     <div className="footer-brand">
-                        <img src={theme === 'light' ? '/logo-light-mode.svg' : '/logo-dark-mode.svg'} alt="UltraCare" className="logo-img" style={{ height: 32 }} />
+                        <img src={theme === 'light' ? 'https://objectstorage.ap-mumbai-1.oraclecloud.com/n/bmuzdalqtcix/b/UltraCare-assets/o/logo-light-mode.svg' : 'https://objectstorage.ap-mumbai-1.oraclecloud.com/n/bmuzdalqtcix/b/UltraCare-assets/o/logo-dark-mode.svg'} alt="UltraCare" className="logo-img" style={{ height: 32 }} />
                         <p className="text-sm text-secondary">
                             Advanced Radiology Clinic Management System
                         </p>

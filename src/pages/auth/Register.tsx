@@ -46,7 +46,7 @@ export default function Signup() {
             <motion.div className="auth-card card" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
                 <div className="auth-header">
                     <Link to="/" className="auth-logo">
-                        <img src={theme === 'light' ? '/logo-light-mode.svg' : '/logo-dark-mode.svg'} alt="UltraCare" className="logo-img" style={{ height: 40 }} />
+                        <img src={theme === 'light' ? 'https://objectstorage.ap-mumbai-1.oraclecloud.com/n/bmuzdalqtcix/b/UltraCare-assets/o/logo-light-mode.svg' : 'https://objectstorage.ap-mumbai-1.oraclecloud.com/n/bmuzdalqtcix/b/UltraCare-assets/o/logo-dark-mode.svg'} alt="UltraCare" className="logo-img" style={{ height: 40 }} />
                     </Link>
                     <h1>Create Account</h1>
                     <p className="text-secondary">Register as a doctor to get started</p>

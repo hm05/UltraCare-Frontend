@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { organizationApi } from '../../api';
 import { authApi } from '../../api/auth';
-import { Building2, DollarSign, Users, FileText, Plus, Trash2, Save, Pencil } from 'lucide-react';
+import { Building2, DollarSign, Users, FileText, Plus, Trash2, Save, Pencil, Key } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function OrgSettings() {
@@ -71,6 +71,29 @@ export default function OrgSettings() {
     const deleteStaff = async (id: string, name: string) => {
         if (!confirm(`Delete staff "${name}"?`)) return;
         try { await organizationApi.deleteStaff(id); toast.success('Deleted'); loadAll(); } catch { toast.error('Delete failed'); }
+    };
+
+    const resetStaffPassword = async (userId: string, name: string) => {
+        const newPassword = prompt(`Enter new password for ${name}:`);
+        if (!newPassword) return;
+        
+        if (newPassword.length < 8) {
+            toast.error('Password must be at least 8 characters');
+            return;
+        }
+
+        const confirmPassword = prompt('Confirm new password:');
+        if (newPassword !== confirmPassword) {
+            toast.error('Passwords do not match');
+            return;
+        }
+
+        try {
+            await authApi.resetPassword(userId, newPassword, confirmPassword);
+            toast.success(`Password reset for ${name}`);
+        } catch (error: any) {
+            toast.error(error.response?.data?.error || 'Password reset failed');
+        }
     };
 
     const saveTemplate = async (reportType: string, content: string) => {
@@ -182,7 +205,7 @@ export default function OrgSettings() {
                     <div className="widget">
                         <div className="table-wrapper">
                             <table>
-                                <thead><tr><th>Username</th><th>Name</th><th>Phone</th><th>Salary</th><th>Created</th><th></th></tr></thead>
+                                <thead><tr><th>Username</th><th>Name</th><th>Phone</th><th>Salary</th><th>Created</th><th>Actions</th></tr></thead>
                                 <tbody>
                                     {staff.map((s: any) => (
                                         <tr key={s.id}>
@@ -191,7 +214,26 @@ export default function OrgSettings() {
                                             <td className="text-secondary">{s.phone || '—'}</td>
                                             <td>₹{Number(s.salary || 0).toLocaleString()}</td>
                                             <td className="text-xs text-tertiary">{new Date(s.created_at).toLocaleDateString('en-IN')}</td>
-                                            <td><button className="btn-icon" onClick={() => deleteStaff(s.id, s.first_name)}><Trash2 size={16} /></button></td>
+                                            <td>
+                                                <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+                                                    <button 
+                                                        className="btn-icon" 
+                                                        onClick={() => resetStaffPassword(s.id, s.first_name)}
+                                                        title="Reset Password"
+                                                        style={{ color: 'var(--warning)' }}
+                                                    >
+                                                        <Key size={16} />
+                                                    </button>
+                                                    <button 
+                                                        className="btn-icon" 
+                                                        onClick={() => deleteStaff(s.id, s.first_name)}
+                                                        title="Delete Staff"
+                                                        style={{ color: 'var(--danger)' }}
+                                                    >
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                </div>
+                                            </td>
                                         </tr>
                                     ))}
                                     {staff.length === 0 && <tr><td colSpan={6} className="text-center text-secondary" style={{ padding: 'var(--space-8)' }}>No staff members yet</td></tr>}

@@ -16,7 +16,7 @@ function getLast7Days(): { day: string; dateStr: string }[] {
         d.setDate(d.getDate() - i);
         days.push({
             day: d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }),
-            dateStr: d.toISOString().slice(0, 10),
+            dateStr: d.toLocaleDateString('en-CA'), // Returns local timezone YYYY-MM-DD
         });
     }
     return days;

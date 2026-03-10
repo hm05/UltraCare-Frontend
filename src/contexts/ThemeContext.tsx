@@ -23,7 +23,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         // Dynamically update the browser favicon to match the selected theme
         const favicon = document.querySelector("link[rel~='icon']") as HTMLLinkElement;
         if (favicon) {
-            favicon.href = theme === 'dark' ? '/icon-dark-mode.svg' : '/icon-light-mode.svg';
+            favicon.href = theme === 'dark' ? 'https://objectstorage.ap-mumbai-1.oraclecloud.com/n/bmuzdalqtcix/b/UltraCare-assets/o/icon-dark-mode.svg' : 'https://objectstorage.ap-mumbai-1.oraclecloud.com/n/bmuzdalqtcix/b/UltraCare-assets/o/icon-light-mode.svg';
         }
     }, [theme]);
 
