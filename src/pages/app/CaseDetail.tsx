@@ -1,13 +1,162 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, type FC, type ChangeEvent, type MouseEvent } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { casesApi, uploadApi, organizationApi } from '../../api';
 import { useAuth } from '../../contexts/AuthContext';
-import { Pencil, Save, X, Trash2, Download, Printer, Mail, FileText, Upload, ArrowLeft, ClipboardList } from 'lucide-react';
+import {
+    Pencil, Save, X, Trash2, Download, Printer, Mail, FileText,
+    Upload, ArrowLeft, ClipboardList, Image, File, Eye,
+    ChevronDown, ChevronRight,
+} from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const SERVICE_TYPES = ['Sonography', 'Obs. Sonography', 'X-Ray', 'C.T.', 'M.R.I.', 'N.A.'] as const;
 const PAYMENT_MODES = ['Cash', 'UPI', 'Card', 'Cheque', 'NEFT', 'Other'] as const;
+const UPLOAD_TYPES = ['Scan', 'X-Ray Film', 'Prescription', 'Lab Result', 'Other'] as const;
 
+// ─── Preview Modal ─────────────────────────────────────────────────────────────
+type PreviewContent =
+    | { kind: 'html'; html: string; title: string }
+    | { kind: 'image'; url: string; title: string }
+    | { kind: 'pdf'; url: string; title: string };
+
+function PreviewModal({ content, onClose }: { content: PreviewContent; onClose: () => void }) {
+    const isImage = content.kind === 'image';
+
+    return (
+        <div
+            style={{
+                position: 'fixed', inset: 0, zIndex: 9999,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(12px)',
+                padding: 'var(--space-6)',
+            }}
+            onClick={onClose}
+        >
+            <div
+                style={{
+                    background: 'var(--bg)', width: '100%',
+                    maxWidth: isImage ? 760 : 940,
+                    height: isImage ? 'auto' : '88vh',
+                    maxHeight: isImage ? '90vh' : '88vh',
+                    borderRadius: 'var(--radius-lg)',
+                    boxShadow: '0 32px 64px rgba(0,0,0,0.3)',
+                    display: 'flex', flexDirection: 'column', overflow: 'hidden',
+                }}
+                onClick={e => e.stopPropagation()}
+            >
+                {/* Header */}
+                <div style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: 'var(--space-4) var(--space-5)',
+                    borderBottom: '1px solid var(--border)',
+                    background: 'var(--bg-secondary)',
+                    flexShrink: 0,
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+                        {isImage ? <Image size={18} style={{ color: 'var(--accent)' }} /> : <FileText size={18} style={{ color: 'var(--accent)' }} />}
+                        <span style={{ fontWeight: 600, fontSize: 'var(--font-size-md)' }}>{content.title}</span>
+                    </div>
+                    <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+                        {!isImage && (
+                            <button className="btn btn-sm btn-outline" onClick={() => {
+                                if (content.kind === 'html') {
+                                    const win = window.open('', '_blank');
+                                    if (win) { win.document.write(content.html); win.document.close(); win.print(); }
+                                } else {
+                                    window.open(content.url, '_blank');
+                                }
+                            }}>
+                                <Printer size={14} /> Print
+                            </button>
+                        )}
+                        <button className="btn btn-sm btn-outline" onClick={() => {
+                            if (content.kind === 'html') {
+                                const win = window.open('', '_blank');
+                                if (win) { win.document.write(content.html); win.document.close(); }
+                            } else {
+                                window.open(content.url, '_blank');
+                            }
+                        }}>
+                            <Eye size={14} /> Open
+                        </button>
+                        <button className="btn-icon" onClick={onClose} style={{ background: 'var(--bg)', border: '1px solid var(--border)' }}>
+                            <X size={16} />
+                        </button>
+                    </div>
+                </div>
+
+                {/* Content */}
+                <div style={{ flex: 1, overflow: 'auto', background: isImage ? '#111' : '#fff', display: 'flex', alignItems: isImage ? 'center' : 'stretch', justifyContent: 'center' }}>
+                    {content.kind === 'html' && (
+                        <iframe srcDoc={content.html} style={{ width: '100%', height: '100%', border: 'none' }} title={content.title} />
+                    )}
+                    {content.kind === 'image' && (
+                        <img
+                            src={content.url}
+                            alt={content.title}
+                            style={{ maxWidth: '100%', maxHeight: '80vh', objectFit: 'contain', display: 'block' }}
+                        />
+                    )}
+                    {content.kind === 'pdf' && (
+                        <iframe src={content.url} style={{ width: '100%', height: '100%', border: 'none' }} title={content.title} />
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// ─── Detect if a URL is an image ───────────────────────────────────────────────
+function isImageUrl(url: string) {
+    if (!url) return false;
+    const ext = url.split('?')[0].split('.').pop()?.toLowerCase();
+    return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg', 'tiff', 'dcm'].includes(ext || '');
+}
+
+function isPdfUrl(url: string) {
+    if (!url) return false;
+    const ext = url.split('?')[0].split('.').pop()?.toLowerCase();
+    return ext === 'pdf';
+}
+
+// ─── Chronology item types ─────────────────────────────────────────────────────
+interface ChronoItem {
+    id: string;
+    kind: 'case' | 'visit' | 'report' | 'document';
+    date: Date;
+    title: string;
+    subtitle?: string;
+    icon: FC<any>;
+    accentColor: string;
+    // for preview
+    reportId?: string;
+    imageUrl?: string;
+    fileUrl?: string;
+    fileType?: string;
+    content?: string;
+}
+
+function groupByDate(items: ChronoItem[]): { label: string; dateKey: string; items: ChronoItem[] }[] {
+    const map: Record<string, ChronoItem[]> = {};
+    for (const item of items) {
+        const key = item.date.toISOString().slice(0, 10);
+        if (!map[key]) map[key] = [];
+        map[key].push(item);
+    }
+    return Object.entries(map)
+        .sort(([a], [b]) => b.localeCompare(a))
+        .map(([dateKey, items]) => {
+            const d = new Date(dateKey);
+            const today = new Date().toISOString().slice(0, 10);
+            const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+            const label = dateKey === today ? 'Today'
+                : dateKey === yesterday ? 'Yesterday'
+                    : d.toLocaleDateString('en-IN', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
+            return { label, dateKey, items };
+        });
+}
+
+// ─── Main Component ────────────────────────────────────────────────────────────
 export default function CaseDetail() {
     const { caseId } = useParams<{ caseId: string }>();
     const navigate = useNavigate();
@@ -22,24 +171,29 @@ export default function CaseDetail() {
     const [editing, setEditing] = useState(false);
     const [editForm, setEditForm] = useState<any>({});
 
-    // Upload state
+    // Upload
     const [uploading, setUploading] = useState(false);
     const [uploadNote, setUploadNote] = useState('');
+    const [uploadType, setUploadType] = useState<typeof UPLOAD_TYPES[number]>('Scan');
 
-    // Reporting template state
+    // Reporting template
     const [templates, setTemplates] = useState<any[]>([]);
     const [selectedTemplate, setSelectedTemplate] = useState('');
     const [reportContent, setReportContent] = useState('');
     const [creatingReport, setCreatingReport] = useState(false);
-    const [uploadType, setUploadType] = useState('Report');
 
-    // Email popover state
+    // Email panel
     const [emailTarget, setEmailTarget] = useState<'self' | 'other' | null>(null);
     const [customEmail, setCustomEmail] = useState('');
     const [sendingEmail, setSendingEmail] = useState(false);
 
-    // Apple-styled Preview Modal
-    const [previewHtml, setPreviewHtml] = useState<string | null>(null);
+    // Preview modal
+    const [preview, setPreview] = useState<PreviewContent | null>(null);
+    const [loadingPreview, setLoadingPreview] = useState(false);
+
+    // Collapsed sections
+    const [uploadOpen, setUploadOpen] = useState(false);
+    const [reportingOpen, setReportingOpen] = useState(false);
 
     const loadCase = async () => {
         if (!caseId) return;
@@ -50,7 +204,7 @@ export default function CaseDetail() {
             setReports(res.data.reports || []);
             setVisits(res.data.visits || []);
             setDocuments(res.data.documents || []);
-        } catch (err) {
+        } catch {
             toast.error('Failed to load case');
             navigate('/search');
         } finally {
@@ -58,15 +212,138 @@ export default function CaseDetail() {
         }
     };
 
-    useEffect(() => { loadCase(); loadTemplates(); }, [caseId]);
-
     const loadTemplates = async () => {
         try {
             const res = await organizationApi.getTemplates();
             setTemplates(res.data.templates || []);
-        } catch { /* templates optional */ }
+        } catch { /* optional */ }
     };
 
+    useEffect(() => { loadCase(); loadTemplates(); }, [caseId]);
+
+    // ─── Chronology data ───────────────────────────────────────────────────────
+    const chronoItems = useMemo<ChronoItem[]>(() => {
+        const items: ChronoItem[] = [];
+
+        // Case creation
+        if (caseData) {
+            items.push({
+                id: `case-${caseData.id}`,
+                kind: 'case',
+                date: new Date(caseData.created_at),
+                title: `Case Created — ${caseData.case_number}`,
+                subtitle: `${caseData.service_type} · ₹${Number(caseData.amount ?? 0).toLocaleString()} · ${caseData.payment_mode}`,
+                icon: ClipboardList,
+                accentColor: 'var(--success, #30D158)',
+            });
+        }
+
+        // Visits
+        for (const v of visits) {
+            items.push({
+                id: `visit-${v.id}`,
+                kind: 'visit',
+                date: new Date(v.visit_date || v.created_at),
+                title: 'Visit Logged',
+                subtitle: v.notes || '',
+                icon: Eye,
+                accentColor: 'var(--text-tertiary)',
+            });
+        }
+
+        // Text reports (from templates)
+        for (const r of reports) {
+            items.push({
+                id: `report-${r.id}`,
+                kind: 'report',
+                date: new Date(r.created_at),
+                title: r.description || r.report_type || 'Report',
+                subtitle: r.content ? `${r.content.slice(0, 80)}${r.content.length > 80 ? '…' : ''}` : '',
+                icon: FileText,
+                accentColor: 'var(--accent)',
+                reportId: r.id,
+                imageUrl: r.image_url || undefined,
+                content: r.content || undefined,
+            });
+        }
+
+        // Uploaded documents
+        for (const d of documents) {
+            const isImg = isImageUrl(d.file_url || '');
+            items.push({
+                id: `doc-${d.id}`,
+                kind: 'document',
+                date: new Date(d.created_at),
+                title: d.file_name || d.file_type || 'Document',
+                subtitle: d.notes || d.file_type || '',
+                icon: isImg ? Image : File,
+                accentColor: 'var(--warning)',
+                fileUrl: d.file_url || undefined,
+                fileType: d.file_type,
+            });
+        }
+
+        return items.sort((a, b) => b.date.getTime() - a.date.getTime());
+    }, [caseData, visits, reports, documents]);
+
+    const grouped = useMemo(() => groupByDate(chronoItems), [chronoItems]);
+
+    // ─── Preview handler ───────────────────────────────────────────────────────
+    const openPreview = async (item: ChronoItem) => {
+        // Document with image or PDF → get signed URL first
+        if (item.kind === 'document' && item.fileUrl) {
+            setLoadingPreview(true);
+            try {
+                const res = await uploadApi.getSignedUrlForFile(item.fileUrl);
+                const signedUrl = res.data.signedUrl;
+                
+                if (isImageUrl(item.fileUrl)) {
+                    setPreview({ kind: 'image', url: signedUrl, title: item.title });
+                } else if (isPdfUrl(item.fileUrl)) {
+                    setPreview({ kind: 'pdf', url: signedUrl, title: item.title });
+                } else {
+                    window.open(signedUrl, '_blank');
+                }
+            } catch (err) {
+                console.error('Failed to get signed URL:', err);
+                toast.error('Failed to access file');
+            } finally {
+                setLoadingPreview(false);
+            }
+            return;
+        }
+
+        // Report with only an image attached → get signed URL first
+        if (item.kind === 'report' && !item.content && item.imageUrl) {
+            setLoadingPreview(true);
+            try {
+                const res = await uploadApi.getSignedUrlForFile(item.imageUrl);
+                const signedUrl = res.data.signedUrl;
+                setPreview({ kind: 'image', url: signedUrl, title: item.title });
+            } catch (err) {
+                console.error('Failed to get signed URL for report image:', err);
+                toast.error('Failed to access image');
+            } finally {
+                setLoadingPreview(false);
+            }
+            return;
+        }
+
+        // Text report → fetch HTML from backend
+        if (item.kind === 'report' && item.reportId) {
+            setLoadingPreview(true);
+            try {
+                const res = await casesApi.exportReportHtml(caseId!, item.reportId);
+                setPreview({ kind: 'html', html: res.data, title: item.title });
+            } catch {
+                toast.error('Failed to load report preview');
+            } finally {
+                setLoadingPreview(false);
+            }
+        }
+    };
+
+    // ─── Template apply ────────────────────────────────────────────────────────
     const applyTemplate = (reportType: string) => {
         setSelectedTemplate(reportType);
         const tmpl = templates.find((t: any) => t.report_type === reportType);
@@ -86,6 +363,7 @@ export default function CaseDetail() {
         }
     };
 
+    // ─── Create report from template ──────────────────────────────────────────
     const handleCreateReport = async () => {
         if (!reportContent.trim()) { toast.error('Report content is empty'); return; }
         setCreatingReport(true);
@@ -98,12 +376,16 @@ export default function CaseDetail() {
             toast.success('Report created');
             setReportContent('');
             setSelectedTemplate('');
+            setReportingOpen(false);
             loadCase();
         } catch (err: any) {
             toast.error(err.response?.data?.error || 'Failed to create report');
-        } finally { setCreatingReport(false); }
+        } finally {
+            setCreatingReport(false);
+        }
     };
 
+    // ─── Edit case ─────────────────────────────────────────────────────────────
     const startEditing = () => {
         setEditForm({
             serviceType: caseData.service_type,
@@ -126,8 +408,9 @@ export default function CaseDetail() {
         }
     };
 
+    // ─── Delete case ───────────────────────────────────────────────────────────
     const handleDelete = async () => {
-        if (!confirm('Are you sure you want to delete this case? This action cannot be undone.')) return;
+        if (!confirm('Delete this case? This cannot be undone.')) return;
         try {
             await casesApi.delete(caseId!);
             toast.success('Case deleted');
@@ -137,20 +420,47 @@ export default function CaseDetail() {
         }
     };
 
-    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    // ─── Delete report ─────────────────────────────────────────────────────────
+    const handleDeleteReport = async (e: MouseEvent, reportId: string) => {
+        e.stopPropagation();
+        if (!confirm('Delete this report?')) return;
+        try {
+            await casesApi.deleteReport(caseId!, reportId);
+            toast.success('Report deleted');
+            loadCase();
+        } catch (err: any) {
+            toast.error(err.response?.data?.error || 'Delete failed');
+        }
+    };
+
+    // ─── Delete document ───────────────────────────────────────────────────────
+    const handleDeleteDocument = async (e: MouseEvent, documentId: string) => {
+        e.stopPropagation();
+        if (!confirm('Delete this document?')) return;
+        try {
+            await casesApi.deleteDocument(caseId!, documentId);
+            toast.success('Document deleted');
+            loadCase();
+        } catch (err: any) {
+            toast.error(err.response?.data?.error || 'Delete failed');
+        }
+    };
+
+    // ─── File upload — always creates a document ───────────────────────────────
+    const handleFileUpload = async (e: ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
         setUploading(true);
         try {
             const res = await uploadApi.uploadFile(file);
             const fileUrl = res.data.url || res.data.file?.url || '';
-            // Create report document record
-            await casesApi.createReport(caseId!, {
-                description: uploadNote || file.name,
-                imageUrl: fileUrl,
-                reportType: uploadType,
+            await casesApi.createDocument(caseId!, {
+                fileName: uploadNote || file.name,
+                fileUrl,
+                fileType: uploadType,
+                notes: uploadNote || '',
             });
-            toast.success('Report uploaded');
+            toast.success(`${uploadType} uploaded`);
             setUploadNote('');
             loadCase();
         } catch (err: any) {
@@ -161,20 +471,27 @@ export default function CaseDetail() {
         }
     };
 
+    // ─── Export / Form F ───────────────────────────────────────────────────────
     const handleExport = async (format: string, reportId?: string) => {
         const targetReportId = reportId || (reports.length > 0 ? reports[0].id : null);
-        if (!targetReportId) {
-            toast.error('No reports to export');
-            return;
-        }
+
         try {
+            if (format === 'form-f') {
+                const res = await casesApi.exportFormF(caseId!);
+                setPreview({ kind: 'html', html: res.data, title: 'Form F' });
+                return;
+            }
+            if (!targetReportId) {
+                toast.error('No text report available. Create one from a template first.');
+                return;
+            }
             if (format === 'print') {
                 const res = await casesApi.printReport(caseId!, targetReportId);
                 const win = window.open('', '_blank');
                 if (win) { win.document.write(res.data); win.document.close(); win.print(); }
             } else if (format === 'html') {
                 const res = await casesApi.exportReportHtml(caseId!, targetReportId);
-                setPreviewHtml(res.data);
+                setPreview({ kind: 'html', html: res.data, title: 'Report Preview' });
             } else if (format === 'md') {
                 const res = await casesApi.exportReportMd(caseId!, targetReportId);
                 const blob = new Blob([res.data], { type: 'text/markdown' });
@@ -184,58 +501,113 @@ export default function CaseDetail() {
                 a.click();
             }
         } catch (err: any) {
-            toast.error(err.response?.data?.error || 'Export failed');
+            toast.error(err.response?.data?.error || err.message || 'Export failed');
         }
     };
 
+    // ─── Email ─────────────────────────────────────────────────────────────────
     const handleEmailSend = async () => {
-        if (!reports.length) {
-            toast.error('No reports to email');
+        if (!reports.length && !documents.length) {
+            toast.error('No reports or documents to email');
             return;
         }
         const target = emailTarget === 'self' ? user?.email : customEmail;
-        if (!target) {
-            toast.error('Please specify an email address');
-            return;
-        }
+        if (!target) { toast.error('Please enter an email address'); return; }
+        const reportId = reports.length > 0 ? reports[0].id : null;
+        if (!reportId) { toast.error('No text report found — create one from a template first'); return; }
         setSendingEmail(true);
         try {
-            await casesApi.emailReport(caseId!, reports[0].id, target);
-            toast.success('Email sent successfully');
+            await casesApi.emailReport(caseId!, reportId, target);
+            toast.success(`Email sent to ${target}`);
             setEmailTarget(null);
             setCustomEmail('');
         } catch (err: any) {
-            toast.error(err.response?.data?.error || 'Failed to send email');
+            const msg = err.response?.data?.error || err.response?.data?.details || 'Email failed';
+            toast.error(msg);
         } finally {
             setSendingEmail(false);
         }
     };
 
-    if (loading) return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}><div className="loader"></div></div>;
+    // ─── Render ────────────────────────────────────────────────────────────────
+    if (loading) return (
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
+            <div className="loader" />
+        </div>
+    );
     if (!caseData) return <p className="text-secondary">Case not found</p>;
 
     const patient = Array.isArray(caseData.patient) ? caseData.patient[0] : caseData.patient;
+    const hasSonography = caseData.service_type?.toLowerCase().includes('sonography');
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-            {/* Back button */}
-            <button onClick={() => navigate('/search')} className="btn btn-sm btn-outline" style={{ alignSelf: 'flex-start' }}>
-                <ArrowLeft size={14} /> Back to Cases
-            </button>
 
-            {/* Case Details Card */}
+            {/* ── Top bar ── */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-3)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+                    <button className="btn-icon" onClick={() => navigate('/search')} style={{ background: 'var(--bg)', border: '1px solid var(--border)' }}>
+                        <ArrowLeft size={16} />
+                    </button>
+                    <div>
+                        <h1 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 700, margin: 0 }}>Case Details</h1>
+                        <p className="text-sm text-secondary" style={{ margin: 0 }}>{caseData.case_number}</p>
+                    </div>
+                </div>
+                <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+                    {hasSonography && (
+                        <button className="btn btn-sm btn-primary" onClick={() => handleExport('form-f')}>
+                            <FileText size={14} /> Form F
+                        </button>
+                    )}
+                    <button className="btn btn-sm btn-outline" onClick={() => handleExport('html')}>
+                        <Download size={14} /> Export
+                    </button>
+                    <button className="btn btn-sm btn-outline" onClick={() => handleExport('print')}>
+                        <Printer size={14} /> Print
+                    </button>
+                    {/* Email */}
+                    <div style={{ position: 'relative' }}>
+                        <button className="btn btn-sm btn-outline" onClick={() => setEmailTarget(p => p ? null : 'self')}>
+                            <Mail size={14} /> Email
+                        </button>
+                        {emailTarget && (
+                            <div className="card shadow-md" style={{
+                                position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 20,
+                                minWidth: 220, padding: 'var(--space-3)', display: 'flex',
+                                flexDirection: 'column', gap: 'var(--space-2)',
+                            }}>
+                                <select className="form-input" value={emailTarget} onChange={e => setEmailTarget(e.target.value as any)}>
+                                    <option value="self">My email</option>
+                                    <option value="other">Other address</option>
+                                </select>
+                                {emailTarget === 'other' && (
+                                    <input className="form-input" type="email" placeholder="Email address" value={customEmail} onChange={e => setCustomEmail(e.target.value)} />
+                                )}
+                                <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+                                    <button className="btn btn-sm btn-primary" style={{ flex: 1 }} onClick={handleEmailSend} disabled={sendingEmail}>
+                                        {sendingEmail ? 'Sending…' : 'Send'}
+                                    </button>
+                                    <button className="btn btn-sm btn-secondary" onClick={() => setEmailTarget(null)}>Cancel</button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            {/* ── Case overview ── */}
             <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>
-                        <span className="badge badge-primary" style={{ fontSize: 'var(--font-size-md)' }}>{caseData.case_number}</span>
-                        <span className="text-sm text-tertiary" style={{ marginLeft: 'var(--space-3)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+                        <h2 style={{ fontSize: 'var(--font-size-md)', fontWeight: 600, margin: 0 }}>Overview</h2>
+                        <span className="badge badge-primary">{caseData.case_number}</span>
+                        <span className="text-sm text-tertiary">
                             {new Date(caseData.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })}
                         </span>
                     </div>
-                    {!editing && (
-                        <button className="btn btn-sm btn-outline" onClick={startEditing}>
-                            <Pencil size={14} /> Edit
-                        </button>
+                    {!editing && isDoctor && (
+                        <button className="btn btn-sm btn-outline" onClick={startEditing}><Pencil size={14} /> Edit</button>
                     )}
                 </div>
 
@@ -245,13 +617,13 @@ export default function CaseDetail() {
                             <div className="form-group">
                                 <label className="form-label">Service Type</label>
                                 <select className="form-input" value={editForm.serviceType} onChange={e => setEditForm({ ...editForm, serviceType: e.target.value })}>
-                                    {SERVICE_TYPES.map(s => <option key={s} value={s}>{s}</option>)}
+                                    {SERVICE_TYPES.map(s => <option key={s}>{s}</option>)}
                                 </select>
                             </div>
                             <div className="form-group">
                                 <label className="form-label">Payment Mode</label>
                                 <select className="form-input" value={editForm.paymentMode} onChange={e => setEditForm({ ...editForm, paymentMode: e.target.value })}>
-                                    {PAYMENT_MODES.map(m => <option key={m} value={m}>{m}</option>)}
+                                    {PAYMENT_MODES.map(m => <option key={m}>{m}</option>)}
                                 </select>
                             </div>
                             <div className="form-group">
@@ -275,292 +647,241 @@ export default function CaseDetail() {
                         </div>
                     </div>
                 ) : (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 'var(--space-4)' }}>
-                        <div>
-                            <p className="text-xs text-tertiary" style={{ marginBottom: 2 }}>Patient</p>
-                            <p className="font-semibold">{patient?.name || '—'}</p>
-                        </div>
-                        <div>
-                            <p className="text-xs text-tertiary" style={{ marginBottom: 2 }}>Sex / Age</p>
-                            <p>{patient?.sex || '—'} · {patient?.age_years ? `${patient.age_years}y` : ''}{patient?.age_months ? ` ${patient.age_months}m` : ''}</p>
-                        </div>
-                        <div>
-                            <p className="text-xs text-tertiary" style={{ marginBottom: 2 }}>Phone</p>
-                            <p>{patient?.phone || '—'}</p>
-                        </div>
-                        <div>
-                            <p className="text-xs text-tertiary" style={{ marginBottom: 2 }}>Guardian</p>
-                            <p>{patient?.guardian_name || '—'}</p>
-                        </div>
-                        <div>
-                            <p className="text-xs text-tertiary" style={{ marginBottom: 2 }}>Service Type</p>
-                            <p><span className="badge badge-primary">{caseData.service_type}</span></p>
-                        </div>
-                        <div>
-                            <p className="text-xs text-tertiary" style={{ marginBottom: 2 }}>Amount</p>
-                            <p className="font-semibold">₹{Number(caseData.amount ?? 0).toLocaleString()}</p>
-                        </div>
-                        <div>
-                            <p className="text-xs text-tertiary" style={{ marginBottom: 2 }}>Payment</p>
-                            <p><span className={`badge ${caseData.payment_mode === 'Cash' ? 'badge-success' : 'badge-warning'}`}>{caseData.payment_mode}</span></p>
-                        </div>
-                        <div>
-                            <p className="text-xs text-tertiary" style={{ marginBottom: 2 }}>Referred By</p>
-                            <p>{caseData.referred_by || '—'}</p>
-                        </div>
-                        <div>
-                            <p className="text-xs text-tertiary" style={{ marginBottom: 2 }}>Address</p>
-                            <p className="text-sm">{[patient?.address_line_1, patient?.area, patient?.city, patient?.pincode].filter(Boolean).join(', ') || '—'}</p>
-                        </div>
-                    </div>
-                )}
-            </div>
-
-            {/* Upload Reports Section */}
-            <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-                <h3 style={{ fontSize: 'var(--font-size-md)', fontWeight: 600 }}>Reports & Documents</h3>
-
-                <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'flex-end', flexWrap: 'wrap' }}>
-                    <div className="form-group" style={{ flex: 1, minWidth: 150 }}>
-                        <label className="form-label">Report Type</label>
-                        <select className="form-input" value={uploadType} onChange={e => setUploadType(e.target.value)}>
-                            <option>Report</option>
-                            <option>Scan</option>
-                            <option>X-Ray</option>
-                            <option>Prescription</option>
-                            <option>Lab Result</option>
-                            <option>Other</option>
-                        </select>
-                    </div>
-                    <div className="form-group" style={{ flex: 2, minWidth: 200 }}>
-                        <label className="form-label">Note</label>
-                        <input className="form-input" placeholder="Brief description..." value={uploadNote} onChange={e => setUploadNote(e.target.value)} />
-                    </div>
-                    <label className="btn btn-primary btn-sm" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-                        <Upload size={14} /> {uploading ? 'Uploading...' : 'Upload File'}
-                        <input type="file" accept="image/*,.pdf,.doc,.docx,.dcm,application/dicom" onChange={handleFileUpload} style={{ display: 'none' }} disabled={uploading} />
-                    </label>
-                </div>
-
-                {/* Uploaded documents grid */}
-                {(reports.length > 0 || documents.length > 0) && (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 'var(--space-3)', marginTop: 'var(--space-2)' }}>
-                        {reports.map((r: any) => (
-                            <div key={r.id} onClick={() => handleExport('html', r.id)} style={{
-                                border: '1px solid var(--border)', borderRadius: 'var(--radius-md)',
-                                padding: 'var(--space-2)', display: 'flex', flexDirection: 'column', gap: 4,
-                                cursor: 'pointer'
-                            }} className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
-                                {r.image_url ? (
-                                    <div style={{
-                                        width: '100%', aspectRatio: '1', borderRadius: 'var(--radius-sm)',
-                                        background: 'var(--bg-secondary)', overflow: 'hidden', display: 'flex',
-                                        alignItems: 'center', justifyContent: 'center',
-                                    }}>
-                                        <img src={r.image_url} alt={r.description} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'cover' }}
-                                            onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                                    </div>
-                                ) : (
-                                    <div style={{
-                                        width: '100%', aspectRatio: '1', borderRadius: 'var(--radius-sm)',
-                                        background: 'var(--bg-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    }}>
-                                        <FileText size={28} className="text-tertiary" />
-                                    </div>
-                                )}
-                                <p className="text-xs font-semibold" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                    {r.report_type || r.description || 'Report'}
-                                </p>
-                                <p className="text-xs text-tertiary">{new Date(r.created_at).toLocaleDateString('en-IN')}</p>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 'var(--space-4)' }}>
+                        {[
+                            { label: 'Patient', value: patient?.name || '—' },
+                            { label: 'Sex / Age', value: `${patient?.sex || '—'} · ${patient?.age_years ? `${patient.age_years}y` : ''}${patient?.age_months ? ` ${patient.age_months}m` : ''}` },
+                            { label: 'Phone', value: patient?.phone || '—' },
+                            { label: 'Guardian', value: patient?.guardian_name || '—' },
+                            { label: 'Service', value: <span className="badge badge-primary">{caseData.service_type}</span> },
+                            { label: 'Amount', value: `₹${Number(caseData.amount ?? 0).toLocaleString()}` },
+                            { label: 'Payment', value: <span className={`badge ${caseData.payment_mode === 'Cash' ? 'badge-success' : 'badge-warning'}`}>{caseData.payment_mode}</span> },
+                            { label: 'Referred By', value: caseData.referred_by || '—' },
+                        ].map(({ label, value }) => (
+                            <div key={label}>
+                                <p className="text-xs text-tertiary" style={{ marginBottom: 2 }}>{label}</p>
+                                <p style={{ fontWeight: 500 }}>{value}</p>
                             </div>
                         ))}
-                    </div>
-                )}
-                {reports.length === 0 && documents.length === 0 && (
-                    <p className="text-sm text-secondary" style={{ textAlign: 'center', padding: 'var(--space-4)' }}>No reports uploaded yet</p>
-                )}
-            </div>
-
-            {/* Medical Chronology */}
-            <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-                <h3 style={{ fontSize: 'var(--font-size-md)', fontWeight: 600 }}>Medical Chronology</h3>
-                <div style={{ position: 'relative', paddingLeft: 'var(--space-6)' }}>
-                    <div style={{
-                        position: 'absolute', left: 10, top: 0, bottom: 0, width: 2,
-                        background: 'var(--border)', borderRadius: 2,
-                    }} />
-                    {visits.map((v: any) => (
-                        <div key={v.id} style={{ position: 'relative', paddingBottom: 'var(--space-4)' }}>
-                            <div style={{
-                                position: 'absolute', left: -18, top: 4, width: 10, height: 10,
-                                borderRadius: '50%', background: 'var(--accent)', border: '2px solid var(--bg)',
-                            }} />
-                            <div>
-                                <p className="font-semibold text-sm">{v.notes || 'Visit'}</p>
-                                <p className="text-xs text-tertiary">
-                                    {new Date(v.visit_date || v.created_at).toLocaleDateString('en-IN', {
-                                        day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
-                                    })}
-                                </p>
-                            </div>
-                        </div>
-                    ))}
-                    {/* Case Creation Event — always shown */}
-                    <div style={{ position: 'relative', paddingBottom: 0 }}>
-                        <div style={{
-                            position: 'absolute', left: -18, top: 4, width: 10, height: 10,
-                            borderRadius: '50%', background: 'var(--success, #30D158)', border: '2px solid var(--bg)',
-                        }} />
-                        <div>
-                            <p className="font-semibold text-sm">Case Created — {caseData.case_number}</p>
-                            <p className="text-xs text-tertiary">
-                                {new Date(caseData.created_at).toLocaleDateString('en-IN', {
-                                    day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit',
-                                })}
-                            </p>
-                            <p className="text-xs text-secondary" style={{ marginTop: 2 }}>
-                                {caseData.service_type} · ₹{Number(caseData.amount ?? 0).toLocaleString()} · {caseData.payment_mode}
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Reporting Template */}
-            {isDoctor && (
-                <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                        <ClipboardList size={18} />
-                        <h3 style={{ fontSize: 'var(--font-size-md)', fontWeight: 600 }}>Reporting</h3>
-                    </div>
-                    <p className="text-xs text-secondary">Select a report template, edit the pre-filled content, and create a report for this case.</p>
-                    <div style={{ display: 'flex', gap: 'var(--space-3)', flexWrap: 'wrap', alignItems: 'flex-end' }}>
-                        <div className="form-group" style={{ minWidth: 200 }}>
-                            <label className="form-label">Report Template</label>
-                            <select className="form-input" value={selectedTemplate} onChange={e => applyTemplate(e.target.value)}>
-                                <option value="">— Select template —</option>
-                                {templates.map((t: any) => (
-                                    <option key={t.id || t.report_type} value={t.report_type}>{t.report_type}</option>
-                                ))}
-                                {templates.length === 0 && <option disabled>No templates configured</option>}
-                            </select>
-                        </div>
-                    </div>
-                    {selectedTemplate && (
-                        <>
-                            <textarea
-                                className="form-input"
-                                style={{ minHeight: 200, fontFamily: 'monospace', fontSize: 'var(--font-size-sm)', lineHeight: 1.6 }}
-                                value={reportContent}
-                                onChange={e => setReportContent(e.target.value)}
-                                placeholder="Report content will appear here after selecting a template..."
-                            />
-                            <div style={{ display: 'flex', gap: 'var(--space-2)', justifyContent: 'flex-end' }}>
-                                <button className="btn btn-sm btn-secondary" onClick={() => { setSelectedTemplate(''); setReportContent(''); }}>
-                                    <X size={14} /> Clear
-                                </button>
-                                <button className="btn btn-sm btn-primary" onClick={handleCreateReport} disabled={creatingReport}>
-                                    <Save size={14} /> {creatingReport ? 'Creating...' : 'Create Report'}
-                                </button>
-                            </div>
-                        </>
-                    )}
-                </div>
-            )}
-
-            {/* Action Bar */}
-            <div className="card" style={{
-                display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap',
-                gap: 'var(--space-3)', padding: 'var(--space-3) var(--space-4)',
-            }}>
-                <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
-                    <button className="btn btn-sm btn-outline" onClick={() => handleExport('html')}><Download size={14} /> Export PDF</button>
-                    <button className="btn btn-sm btn-outline" onClick={() => handleExport('print')}><Printer size={14} /> Print</button>
-                    <div style={{ position: 'relative' }}>
-                        <button className="btn btn-sm btn-outline" onClick={() => setEmailTarget(emailTarget ? null : 'self')}><Mail size={14} /> Email</button>
-                        {emailTarget && (
-                            <div className="card shadow-md" style={{
-                                position: 'absolute', bottom: '100%', left: 0, marginBottom: 4, zIndex: 10,
-                                minWidth: 200, display: 'flex', flexDirection: 'column', gap: 'var(--space-2)',
-                                padding: 'var(--space-3)'
-                            }}>
-                                <select className="form-input" value={emailTarget} onChange={e => setEmailTarget(e.target.value as any)}>
-                                    <option value="self">Self (My Email)</option>
-                                    <option value="other">Other</option>
-                                </select>
-                                {emailTarget === 'other' && (
-                                    <input className="form-input" type="email" placeholder="Enter email address" value={customEmail} onChange={e => setCustomEmail(e.target.value)} />
-                                )}
-                                <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-2)' }}>
-                                    <button className="btn btn-sm btn-primary" style={{ flex: 1 }} onClick={handleEmailSend} disabled={sendingEmail}>
-                                        {sendingEmail ? 'Sending...' : 'Send'}
-                                    </button>
-                                    <button className="btn btn-sm btn-secondary" onClick={() => setEmailTarget(null)}>Cancel</button>
-                                </div>
+                        {(patient?.address_line_1 || patient?.city) && (
+                            <div style={{ gridColumn: '1 / -1' }}>
+                                <p className="text-xs text-tertiary" style={{ marginBottom: 2 }}>Address</p>
+                                <p className="text-sm">{[patient?.address_line_1, patient?.area, patient?.city, patient?.pincode].filter(Boolean).join(', ')}</p>
                             </div>
                         )}
                     </div>
-                    <button className="btn btn-sm btn-outline" onClick={() => handleExport('md')}><FileText size={14} /> Markdown</button>
+                )}
+            </div>
+
+            {/* ── Medical Chronology ── */}
+            <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <h3 style={{ fontSize: 'var(--font-size-md)', fontWeight: 600, margin: 0 }}>Medical Chronology</h3>
+                    <span className="text-xs text-tertiary">{chronoItems.length} {chronoItems.length === 1 ? 'entry' : 'entries'}</span>
                 </div>
-                <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-                    {isDoctor && (
-                        <button className="btn btn-sm" onClick={handleDelete} style={{
-                            background: 'var(--danger, #ef4444)', color: '#fff', border: 'none',
-                        }}>
-                            <Trash2 size={14} /> Delete Case
-                        </button>
+
+                {loadingPreview && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', padding: 'var(--space-3)', color: 'var(--accent)' }}>
+                        <div className="loader" style={{ width: 16, height: 16 }} /> Loading preview…
+                    </div>
+                )}
+
+                {grouped.length === 0 && (
+                    <p className="text-sm text-secondary" style={{ textAlign: 'center', padding: 'var(--space-6)' }}>
+                        No entries yet. Upload a scan or create a report below.
+                    </p>
+                )}
+
+                {grouped.map(({ label, dateKey, items }) => (
+                    <div key={dateKey} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+                        {/* Date label */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+                            <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--text-tertiary)', whiteSpace: 'nowrap' }}>{label}</span>
+                            <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+                        </div>
+
+                        {/* Items for this date */}
+                        <div className="widget" style={{ padding: 0, overflow: 'hidden' }}>
+                            {items.map((item, idx) => {
+                                const Icon = item.icon;
+                                const isClickable = item.kind !== 'case' && item.kind !== 'visit';
+                                const canDelete = item.kind === 'report' || item.kind === 'document';
+                                return (
+                                    <div
+                                        key={item.id}
+                                        style={{
+                                            display: 'flex', alignItems: 'center', gap: 'var(--space-4)',
+                                            padding: 'var(--space-3) var(--space-4)',
+                                            borderBottom: idx < items.length - 1 ? '1px solid var(--border)' : 'none',
+                                            cursor: isClickable ? 'pointer' : 'default',
+                                            transition: 'background var(--transition-fast)',
+                                        }}
+                                        onClick={() => isClickable && openPreview(item)}
+                                        onMouseEnter={e => { if (isClickable) (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)'; }}
+                                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = ''; }}
+                                    >
+                                        {/* Color dot */}
+                                        <div style={{
+                                            width: 36, height: 36, borderRadius: 'var(--radius-md)', flexShrink: 0,
+                                            background: `${item.accentColor}18`,
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        }}>
+                                            <Icon size={16} style={{ color: item.accentColor }} />
+                                        </div>
+
+                                        {/* Content */}
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                            <p style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)', margin: 0 }}>{item.title}</p>
+                                            {item.subtitle && (
+                                                <p className="text-xs text-tertiary" style={{ margin: '2px 0 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                    {item.subtitle}
+                                                </p>
+                                            )}
+                                        </div>
+
+                                        {/* Right: time + actions */}
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', flexShrink: 0 }}>
+                                            <span className="text-xs text-tertiary">
+                                                {item.date.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                                            </span>
+                                            {isClickable && (
+                                                <span className="text-xs" style={{ color: 'var(--accent)', fontWeight: 500 }}>Preview →</span>
+                                            )}
+                                            {canDelete && isDoctor && (
+                                                <button
+                                                    className="btn-icon"
+                                                    style={{ padding: 4, opacity: 0.4 }}
+                                                    onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
+                                                    onMouseLeave={e => (e.currentTarget.style.opacity = '0.4')}
+                                                    onClick={e => {
+                                                        if (item.kind === 'report') handleDeleteReport(e, item.reportId!);
+                                                        else handleDeleteDocument(e, item.id.replace('doc-', ''));
+                                                    }}
+                                                >
+                                                    <Trash2 size={14} style={{ color: 'var(--danger)' }} />
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                ))}
+            </div>
+
+            {/* ── Upload Files ── */}
+            <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                <button
+                    style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        background: 'none', border: 'none', width: '100%', cursor: 'pointer',
+                        padding: 'var(--space-4)', textAlign: 'left',
+                    }}
+                    onClick={() => setUploadOpen(o => !o)}
+                >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                        <Upload size={16} style={{ color: 'var(--accent)' }} />
+                        <span style={{ fontWeight: 600, fontSize: 'var(--font-size-md)' }}>Upload Scan / Document</span>
+                        <span className="text-xs text-tertiary">{documents.length} uploaded</span>
+                    </div>
+                    {uploadOpen ? <ChevronDown size={16} className="text-tertiary" /> : <ChevronRight size={16} className="text-tertiary" />}
+                </button>
+
+                {uploadOpen && (
+                    <div style={{ padding: '0 var(--space-4) var(--space-4)', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', borderTop: '1px solid var(--border)' }}>
+                        <p className="text-xs text-secondary" style={{ marginTop: 'var(--space-3)' }}>
+                            Upload scans, X-ray films, prescriptions, or any other file. All uploads appear in the chronology above as clickable previews.
+                        </p>
+                        <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                            <div className="form-group" style={{ minWidth: 150 }}>
+                                <label className="form-label">Type</label>
+                                <select className="form-input" value={uploadType} onChange={e => setUploadType(e.target.value as any)}>
+                                    {UPLOAD_TYPES.map(t => <option key={t}>{t}</option>)}
+                                </select>
+                            </div>
+                            <div className="form-group" style={{ flex: 1, minWidth: 200 }}>
+                                <label className="form-label">Label / Note</label>
+                                <input className="form-input" placeholder="e.g. Abdominal scan 1st trimester" value={uploadNote} onChange={e => setUploadNote(e.target.value)} />
+                            </div>
+                            <label className={`btn btn-primary btn-sm ${uploading ? 'disabled' : ''}`} style={{ cursor: uploading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: 4, opacity: uploading ? 0.6 : 1 }}>
+                                <Upload size={14} /> {uploading ? 'Uploading…' : 'Choose File'}
+                                <input type="file" accept="image/*,.pdf,.doc,.docx,.dcm" onChange={handleFileUpload} style={{ display: 'none' }} disabled={uploading} />
+                            </label>
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            {/* ── Reporting (doctor only) ── */}
+            {isDoctor && (
+                <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                    <button
+                        style={{
+                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                            background: 'none', border: 'none', width: '100%', cursor: 'pointer',
+                            padding: 'var(--space-4)', textAlign: 'left',
+                        }}
+                        onClick={() => setReportingOpen(o => !o)}
+                    >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                            <ClipboardList size={16} style={{ color: 'var(--accent)' }} />
+                            <span style={{ fontWeight: 600, fontSize: 'var(--font-size-md)' }}>Generate Report from Template</span>
+                            <span className="text-xs text-tertiary">{reports.filter(r => r.content).length} text reports</span>
+                        </div>
+                        {reportingOpen ? <ChevronDown size={16} className="text-tertiary" /> : <ChevronRight size={16} className="text-tertiary" />}
+                    </button>
+
+                    {reportingOpen && (
+                        <div style={{ padding: '0 var(--space-4) var(--space-4)', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', borderTop: '1px solid var(--border)' }}>
+                            <p className="text-xs text-secondary" style={{ marginTop: 'var(--space-3)' }}>
+                                Select a template to pre-fill report content. You can edit before saving.
+                            </p>
+                            <div className="form-group" style={{ maxWidth: 280 }}>
+                                <label className="form-label">Template</label>
+                                <select className="form-input" value={selectedTemplate} onChange={e => applyTemplate(e.target.value)}>
+                                    <option value="">— Select template —</option>
+                                    {templates.map((t: any) => (
+                                        <option key={t.id || t.report_type} value={t.report_type}>{t.report_type}</option>
+                                    ))}
+                                    {templates.length === 0 && <option disabled>No templates configured in Settings</option>}
+                                </select>
+                            </div>
+                            {selectedTemplate && (
+                                <>
+                                    <textarea
+                                        className="form-input"
+                                        style={{ minHeight: 220, fontFamily: 'monospace', fontSize: 'var(--font-size-sm)', lineHeight: 1.65 }}
+                                        value={reportContent}
+                                        onChange={e => setReportContent(e.target.value)}
+                                        placeholder="Report content…"
+                                    />
+                                    <div style={{ display: 'flex', gap: 'var(--space-2)', justifyContent: 'flex-end' }}>
+                                        <button className="btn btn-sm btn-secondary" onClick={() => { setSelectedTemplate(''); setReportContent(''); }}>
+                                            <X size={14} /> Clear
+                                        </button>
+                                        <button className="btn btn-sm btn-primary" onClick={handleCreateReport} disabled={creatingReport}>
+                                            <Save size={14} /> {creatingReport ? 'Saving…' : 'Save Report'}
+                                        </button>
+                                    </div>
+                                </>
+                            )}
+                        </div>
                     )}
                 </div>
-            </div>
-            {/* Apple-styled Report Preview Modal */}
-            {previewHtml && (
-                <div style={{
-                    position: 'fixed', inset: 0, zIndex: 9999,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    background: 'rgba(0, 0, 0, 0.4)', backdropFilter: 'blur(10px)',
-                    animation: 'fadeIn 0.2s ease-out', padding: 'var(--space-6)'
-                }}>
-                    <div style={{
-                        background: 'var(--bg)', width: '100%', maxWidth: '900px', height: '90vh',
-                        borderRadius: 'var(--radius-lg)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-                        display: 'flex', flexDirection: 'column', overflow: 'hidden',
-                        animation: 'slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
-                    }}>
-                        {/* Modal Header */}
-                        <div style={{
-                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                            padding: 'var(--space-4) var(--space-6)', borderBottom: '1px solid var(--border)',
-                            background: 'var(--bg-secondary)', backdropFilter: 'blur(20px)'
-                        }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
-                                <FileText className="text-primary" size={20} />
-                                <h2 style={{ fontSize: 'var(--font-size-md)', fontWeight: 600, margin: 0 }}>Report Preview</h2>
-                            </div>
-                            <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-                                <button className="btn btn-sm btn-primary" onClick={() => {
-                                    const win = window.open('', '_blank');
-                                    if (win) { win.document.write(previewHtml); win.document.close(); win.print(); }
-                                }}>
-                                    <Printer size={14} /> Print
-                                </button>
-                                <button className="btn-icon" onClick={() => setPreviewHtml(null)} style={{ background: 'var(--bg)', border: '1px solid var(--border)' }}>
-                                    <X size={16} className="text-secondary" />
-                                </button>
-                            </div>
-                        </div>
-                        {/* Iframe Content */}
-                        <iframe
-                            srcDoc={previewHtml}
-                            style={{ flex: 1, width: '100%', border: 'none', background: '#fff' }}
-                            title="Report Preview"
-                        />
-                    </div>
+            )}
+
+            {/* ── Danger zone ── */}
+            {isDoctor && (
+                <div style={{ display: 'flex', justifyContent: 'center', padding: 'var(--space-2)' }}>
+                    <button className="btn btn-sm btn-outline" style={{ color: 'var(--danger)', borderColor: 'var(--danger)', opacity: 0.7 }} onClick={handleDelete}>
+                        <Trash2 size={14} /> Delete Case
+                    </button>
                 </div>
             )}
-            <style>{`
-                @keyframes slideUp { from { transform: translateY(20px) scale(0.98); opacity: 0; } to { transform: translateY(0) scale(1); opacity: 1; } }
-                @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-            `}</style>
+
+            {/* ── Preview Modal ── */}
+            {preview && <PreviewModal content={preview} onClose={() => setPreview(null)} />}
         </div>
     );
 }

@@ -8,8 +8,15 @@ export const casesApi = {
     edit: (caseId: string, data: any) => client.put(`/cases/${caseId}`, data),
     delete: (caseId: string) => client.delete(`/cases/${caseId}`),
     logVisit: (caseId: string, data: any) => client.post(`/cases/${caseId}/visits`, data),
+    // Text reports (from templates)
     createReport: (caseId: string, data: any) => client.post(`/cases/${caseId}/reports`, data),
+    deleteReport: (caseId: string, reportId: string) => client.delete(`/cases/${caseId}/reports/${reportId}`),
+    // Uploaded file documents
+    createDocument: (caseId: string, data: any) => client.post(`/cases/${caseId}/documents`, data),
+    deleteDocument: (caseId: string, documentId: string) => client.delete(`/cases/${caseId}/documents/${documentId}`),
+    // Daily cases for doctor dashboard
     getDailyCases: (date?: string) => client.get('/doctor/daily-cases', { params: { date } }),
+    // Export / print
     exportReportHtml: (caseId: string, reportId: string) =>
         client.get(`/cases/${caseId}/reports/${reportId}/export/html`, { responseType: 'text' }),
     exportReportMd: (caseId: string, reportId: string) =>
@@ -18,6 +25,8 @@ export const casesApi = {
         client.post(`/cases/${caseId}/reports/${reportId}/email`, { email }),
     printReport: (caseId: string, reportId: string) =>
         client.get(`/cases/${caseId}/reports/${reportId}/print`, { responseType: 'text' }),
+    exportFormF: (caseId: string) =>
+        client.get(`/cases/${caseId}/form-f`, { responseType: 'text' }),
     updateReportImage: (caseId: string, reportId: string, imageUrl: string) =>
         client.patch(`/cases/${caseId}/reports/${reportId}/image`, { imageUrl }),
     updateReportDescription: (caseId: string, reportId: string, description: string) =>
@@ -86,8 +95,13 @@ export const uploadApi = {
         });
     },
     getSignedUrl: (filename: string) => client.get(`/upload/file/${filename}/url`),
+    getSignedUrlForFile: (fileUrl: string) => client.get('/upload/signed-url', { params: { url: fileUrl } }),
     deleteFile: (filename: string) => client.delete(`/upload/file/${filename}/delete`),
     listFiles: () => client.get('/upload/files'),
+};
+
+export const logsApi = {
+    list: () => client.get('/logs'),
 };
 
 export const contactApi = {
