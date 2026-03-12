@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { organizationApi } from '../../api';
 import { authApi } from '../../api/auth';
-import { Building2, DollarSign, Users, FileText, Plus, Trash2, Save, Pencil, Key } from 'lucide-react';
+import { Building2, DollarSign, Users, FileText, Plus, Trash2, Save, Pencil, Key, Eye, EyeOff } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function OrgSettings() {
@@ -16,6 +16,13 @@ export default function OrgSettings() {
     // Staff creation form
     const [showAddStaff, setShowAddStaff] = useState(false);
     const [newStaff, setNewStaff] = useState({ username: '', password: '', firstName: '', lastName: '', phone: '', salary: '', changePasswordOnLogin: false });
+
+    // Staff password reset modal
+    const [passwordResetStaff, setPasswordResetStaff] = useState<{ id: string; name: string } | null>(null);
+    const [passwordReset, setPasswordReset] = useState({ newPassword: '', confirmPassword: '' });
+    const [passwordResetLoading, setPasswordResetLoading] = useState(false);
+    const [showNewPassword, setShowNewPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
     useEffect(() => { loadAll(); }, []);
 
@@ -73,26 +80,41 @@ export default function OrgSettings() {
         try { await organizationApi.deleteStaff(id); toast.success('Deleted'); loadAll(); } catch { toast.error('Delete failed'); }
     };
 
-    const resetStaffPassword = async (userId: string, name: string) => {
-        const newPassword = prompt(`Enter new password for ${name}:`);
-        if (!newPassword) return;
-        
+    const openResetPasswordModal = (userId: string, name: string) => {
+        setPasswordResetStaff({ id: userId, name });
+        setPasswordReset({ newPassword: '', confirmPassword: '' });
+        setShowNewPassword(false);
+        setShowConfirmPassword(false);
+    };
+
+    const handleResetPasswordSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!passwordResetStaff) return;
+
+        const { newPassword, confirmPassword } = passwordReset;
+        if (!newPassword || !confirmPassword) {
+            toast.error('Please enter and confirm the new password');
+            return;
+        }
         if (newPassword.length < 8) {
             toast.error('Password must be at least 8 characters');
             return;
         }
-
-        const confirmPassword = prompt('Confirm new password:');
         if (newPassword !== confirmPassword) {
             toast.error('Passwords do not match');
             return;
         }
 
         try {
-            await authApi.resetPassword(userId, newPassword, confirmPassword);
-            toast.success(`Password reset for ${name}`);
+            setPasswordResetLoading(true);
+            await authApi.resetPassword(passwordResetStaff.id, newPassword, confirmPassword);
+            toast.success(`Password reset for ${passwordResetStaff.name}`);
+            setPasswordResetStaff(null);
+            setPasswordReset({ newPassword: '', confirmPassword: '' });
         } catch (error: any) {
             toast.error(error.response?.data?.error || 'Password reset failed');
+        } finally {
+            setPasswordResetLoading(false);
         }
     };
 
@@ -218,7 +240,7 @@ export default function OrgSettings() {
                                                 <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
                                                     <button 
                                                         className="btn-icon" 
-                                                        onClick={() => resetStaffPassword(s.id, s.first_name)}
+                                                        onClick={() => openResetPasswordModal(s.id, s.first_name)}
                                                         title="Reset Password"
                                                         style={{ color: 'var(--warning)' }}
                                                     >
@@ -329,6 +351,141 @@ export default function OrgSettings() {
                             </div>
                         </>
                     )}
+                </div>
+            )}
+
+            {/* Staff password reset modal */}
+            {passwordResetStaff && (
+                <div
+                    style={{
+                        position: 'fixed',
+                        inset: 0,
+                        background: 'rgba(0,0,0,0.45)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        zIndex: 50,
+                        padding: 'var(--space-6)',
+                    }}
+                    onClick={() => !passwordResetLoading && setPasswordResetStaff(null)}
+                >
+                    <div
+                        className="card"
+                        style={{
+                            maxWidth: 420,
+                            width: '100%',
+                            padding: 'var(--space-5)',
+                            boxShadow: '0 24px 48px rgba(0,0,0,0.35)',
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-3)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                                <Key size={18} style={{ color: 'var(--warning)' }} />
+                                <h3 style={{ margin: 0, fontSize: 'var(--font-size-md)', fontWeight: 600 }}>
+                                    Reset password — {passwordResetStaff.name}
+                                </h3>
+                            </div>
+                            <button
+                                className="btn-icon"
+                                type="button"
+                                onClick={() => !passwordResetLoading && setPasswordResetStaff(null)}
+                            >
+                                ✕
+                            </button>
+                        </div>
+                        <p className="text-sm text-secondary" style={{ marginBottom: 'var(--space-4)' }}>
+                            Set a new password for this staff member. They will use the new password on their next login.
+                        </p>
+                        <form onSubmit={handleResetPasswordSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+                            <div className="form-group">
+                                <label className="form-label">New Password</label>
+                                <div style={{ position: 'relative' }}>
+                                    <input
+                                        className="form-input"
+                                        type={showNewPassword ? 'text' : 'password'}
+                                        value={passwordReset.newPassword}
+                                        onChange={(e) => setPasswordReset({ ...passwordReset, newPassword: e.target.value })}
+                                        placeholder="••••••••"
+                                        minLength={8}
+                                        required
+                                        style={{ paddingRight: 44 }}
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowNewPassword((v) => !v)}
+                                        style={{
+                                            position: 'absolute',
+                                            right: 12,
+                                            top: '50%',
+                                            transform: 'translateY(-50%)',
+                                            background: 'none',
+                                            border: 'none',
+                                            cursor: 'pointer',
+                                            color: 'var(--text-tertiary)',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            padding: 0,
+                                        }}
+                                        aria-label={showNewPassword ? 'Hide password' : 'Show password'}
+                                    >
+                                        {showNewPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                    </button>
+                                </div>
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label">Confirm New Password</label>
+                                <div style={{ position: 'relative' }}>
+                                    <input
+                                        className="form-input"
+                                        type={showConfirmPassword ? 'text' : 'password'}
+                                        value={passwordReset.confirmPassword}
+                                        onChange={(e) => setPasswordReset({ ...passwordReset, confirmPassword: e.target.value })}
+                                        placeholder="••••••••"
+                                        minLength={8}
+                                        required
+                                        style={{ paddingRight: 44 }}
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowConfirmPassword((v) => !v)}
+                                        style={{
+                                            position: 'absolute',
+                                            right: 12,
+                                            top: '50%',
+                                            transform: 'translateY(-50%)',
+                                            background: 'none',
+                                            border: 'none',
+                                            cursor: 'pointer',
+                                            color: 'var(--text-tertiary)',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            padding: 0,
+                                        }}
+                                        aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                                    >
+                                        {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                    </button>
+                                </div>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-2)', marginTop: 'var(--space-2)' }}>
+                                <button
+                                    type="button"
+                                    className="btn btn-sm btn-secondary"
+                                    onClick={() => !passwordResetLoading && setPasswordResetStaff(null)}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="btn btn-sm btn-primary"
+                                    disabled={passwordResetLoading}
+                                >
+                                    {passwordResetLoading ? 'Saving…' : 'Save Password'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
                 </div>
             )}
         </div>

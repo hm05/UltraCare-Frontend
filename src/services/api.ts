@@ -55,8 +55,8 @@ export const authAPI = {
     forgotPassword: (email: string) =>
         api.post('/staff/forgot-password', { email }),
 
-    resetPassword: (userId: string, newPassword: string) =>
-        api.post('/admin/reset-password', { userId, newPassword }),
+    resetPassword: (userId: string, newPassword: string, confirmPassword: string) =>
+        api.post('/admin/reset-password', { userId, newPassword, confirmPassword }),
 };
 
 // Dashboard APIs

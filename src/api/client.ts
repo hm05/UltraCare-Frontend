@@ -26,14 +26,24 @@ client.interceptors.response.use(
     (response) => response,
     (error) => {
         if (error.response?.status === 401) {
-            // Clear session and redirect to login
-            sessionStorage.removeItem('uc_token');
-            sessionStorage.removeItem('uc_user');
-            sessionStorage.removeItem('uc_token_expiry');
-            // Also clear legacy localStorage
-            localStorage.removeItem('accessToken');
-            localStorage.removeItem('user');
-            window.location.href = '/login';
+            const url: string | undefined = error.config?.url;
+            // Do NOT auto-logout on auth endpoints themselves — let the UI show the error
+            const isAuthEndpoint = url === '/login'
+                || url === '/register'
+                || url === '/staff/login'
+                || url === '/staff/forgot-password'
+                || url === '/admin/reset-password';
+
+            if (!isAuthEndpoint) {
+                // Clear session and redirect to login
+                sessionStorage.removeItem('uc_token');
+                sessionStorage.removeItem('uc_user');
+                sessionStorage.removeItem('uc_token_expiry');
+                // Also clear legacy localStorage
+                localStorage.removeItem('accessToken');
+                localStorage.removeItem('user');
+                window.location.href = '/login';
+            }
         }
         return Promise.reject(error);
     }

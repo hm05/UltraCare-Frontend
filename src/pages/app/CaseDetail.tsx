@@ -782,7 +782,7 @@ export default function CaseDetail() {
                 >
                     <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
                         <Upload size={16} style={{ color: 'var(--accent)' }} />
-                        <span style={{ fontWeight: 600, fontSize: 'var(--font-size-md)' }}>Upload Scan / Document</span>
+                        <span style={{ fontWeight: 600, fontSize: 'var(--font-size-md)', color: 'var(--text-primary)' }}>Upload Scan / Document</span>
                         <span className="text-xs text-tertiary">{documents.length} uploaded</span>
                     </div>
                     {uploadOpen ? <ChevronDown size={16} className="text-tertiary" /> : <ChevronRight size={16} className="text-tertiary" />}
@@ -826,7 +826,7 @@ export default function CaseDetail() {
                     >
                         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
                             <ClipboardList size={16} style={{ color: 'var(--accent)' }} />
-                            <span style={{ fontWeight: 600, fontSize: 'var(--font-size-md)' }}>Generate Report from Template</span>
+                            <span style={{ fontWeight: 600, fontSize: 'var(--font-size-md)', color: 'var(--text-primary)' }}>Generate Report from Template</span>
                             <span className="text-xs text-tertiary">{reports.filter(r => r.content).length} text reports</span>
                         </div>
                         {reportingOpen ? <ChevronDown size={16} className="text-tertiary" /> : <ChevronRight size={16} className="text-tertiary" />}
