@@ -33,7 +33,20 @@ export default function Signup() {
             });
             navigate('/login');
         } catch (err: any) {
-            toast.error(err.response?.data?.error || 'Registration failed');
+            const apiError = err.response?.data;
+            const passwordMessage =
+                apiError?.details?.password?.[0] ||
+                apiError?.details?.password?.[0]?.message;
+            const message =
+                passwordMessage ||
+                (typeof apiError?.error === 'string' ? apiError.error : null) ||
+                'Registration failed';
+            // Show specific password error when password is too short
+            if (passwordMessage) {
+                toast.error(passwordMessage);
+            } else {
+                toast.error(message);
+            }
         } finally {
             setLoading(false);
         }
