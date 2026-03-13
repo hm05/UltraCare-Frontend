@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { organizationApi } from '../../api';
+import { organizationApi, uploadApi } from '../../api';
 import { authApi } from '../../api/auth';
-import { Building2, DollarSign, Users, FileText, Plus, Trash2, Save, Pencil, Key, Eye, EyeOff } from 'lucide-react';
+import { Building2, DollarSign, Users, FileText, Plus, Trash2, Save, Pencil, Key, Eye, EyeOff, Upload } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function OrgSettings() {
-    const [tab, setTab] = useState<'info' | 'pricing' | 'staff' | 'templates'>('info');
+    const [tab, setTab] = useState<'info' | 'pricing' | 'staff' | 'templates' | 'formF'>('info');
     const [loading, setLoading] = useState(true);
     const [org, setOrg] = useState<any>({});
     const [pricing, setPricing] = useState<any>({});
@@ -40,9 +40,49 @@ export default function OrgSettings() {
 
     const saveOrg = async () => {
         try {
-            await organizationApi.updateInfo(org);
+            const payload: any = { ...org };
+            if (org.form_f_image_url !== undefined) payload.formFImageUrl = org.form_f_image_url || null;
+            if (org.form_f_config !== undefined) payload.formFConfig = org.form_f_config;
+            await organizationApi.updateInfo(payload);
             toast.success('Organization info saved');
         } catch (err: any) { toast.error(err.response?.data?.error || 'Save failed'); }
+    };
+
+    const saveFormFSettings = async () => {
+        try {
+            await organizationApi.updateInfo({
+                ...org,
+                formFImageUrl: org.form_f_image_url || null,
+                formFConfig: org.form_f_config || {},
+            });
+            toast.success('Form F settings saved');
+        } catch (err: any) { toast.error(err.response?.data?.error || 'Save failed'); }
+    };
+
+    const uploadFormFImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        if (!file.type.startsWith('image/') && file.type !== 'application/pdf') {
+            toast.error('Please upload an image (JPG, PNG) or PDF');
+            return;
+        }
+        try {
+            toast.loading('Uploading Form F...');
+            const res = await uploadApi.uploadFile(file);
+            const url = res.data?.url;
+            if (url) {
+                setOrg((prev: any) => ({ ...prev, form_f_image_url: url }));
+                toast.dismiss();
+                toast.success('Form F uploaded. Click Save to use it.');
+            } else {
+                toast.dismiss();
+                toast.error('Upload failed');
+            }
+        } catch {
+            toast.dismiss();
+            toast.error('Upload failed');
+        }
+        e.target.value = '';
     };
 
     const savePricing = async () => {
@@ -132,7 +172,16 @@ export default function OrgSettings() {
         { key: 'pricing', label: 'Pricing', icon: DollarSign },
         { key: 'staff', label: 'Staff', icon: Users },
         { key: 'templates', label: 'Templates', icon: FileText },
+        { key: 'formF', label: 'Form F', icon: FileText },
     ] as const;
+
+    const formFConfig = org.form_f_config || {};
+    const setFormFConfig = (key: string, value: boolean) => {
+        setOrg((prev: any) => ({
+            ...prev,
+            form_f_config: { ...(prev.form_f_config || {}), [key]: value },
+        }));
+    };
 
     return (
         <div className="dashboard-page">
@@ -351,6 +400,94 @@ export default function OrgSettings() {
                             </div>
                         </>
                     )}
+                </div>
+            )}
+
+            {/* Form F — organisation-specific form and auto-fill options */}
+            {tab === 'formF' && (
+                <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' }}>
+                    <div>
+                        <h3 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, marginBottom: 'var(--space-1)' }}>Form F (PNDT)</h3>
+                        <p className="text-sm text-secondary">
+                            Upload your organisation’s Form F image. When generating Form F for a case, the system will use this form and overlay patient & case data. Choose which organisation/doctor fields the system should auto-fill.
+                        </p>
+                    </div>
+
+                    <div className="form-group">
+                        <label className="form-label">Form F image (blank form)</label>
+                        {org.form_f_image_url && (
+                            <div style={{ marginBottom: 'var(--space-3)' }}>
+                                <a href={org.form_f_image_url} target="_blank" rel="noopener noreferrer" className="text-sm" style={{ color: 'var(--accent)' }}>
+                                    Current form (open in new tab)
+                                </a>
+                            </div>
+                        )}
+                        <label className="btn btn-outline btn-sm" style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6, width: 'fit-content' }}>
+                            <Upload size={14} /> Upload Form F (image or PDF)
+                            <input
+                                type="file"
+                                accept="image/*,.pdf"
+                                onChange={uploadFormFImage}
+                                style={{ display: 'none' }}
+                            />
+                        </label>
+                    </div>
+
+                    <div>
+                        <h4 style={{ fontSize: 'var(--font-size-md)', fontWeight: 600, marginBottom: 'var(--space-3)' }}>Auto-fill by system</h4>
+                        <p className="text-xs text-secondary" style={{ marginBottom: 'var(--space-3)' }}>
+                            When unchecked, the field is left blank on the generated Form F so you can fill it manually (e.g. if you have multiple doctors or don’t want org name on the form).
+                        </p>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 'var(--space-3)', alignItems: 'center' }}>
+                            <div>
+                                <div className="font-semibold">Organisation name & address</div>
+                                <div className="text-xs text-tertiary">Section A, item 1</div>
+                            </div>
+                            <input
+                                type="checkbox"
+                                checked={formFConfig.fillOrgName !== false}
+                                onChange={(e) => setFormFConfig('fillOrgName', e.target.checked)}
+                                style={{ width: 16, height: 16 }}
+                            />
+
+                            <div>
+                                <div className="font-semibold">Organisation address / phone in same block</div>
+                                <div className="text-xs text-tertiary">Included in item 1 line</div>
+                            </div>
+                            <input
+                                type="checkbox"
+                                checked={formFConfig.fillOrgAddress !== false}
+                                onChange={(e) => setFormFConfig('fillOrgAddress', e.target.checked)}
+                                style={{ width: 16, height: 16 }}
+                            />
+
+                            <div>
+                                <div className="font-semibold">Registration No.</div>
+                                <div className="text-xs text-tertiary">Section A, item 2</div>
+                            </div>
+                            <input
+                                type="checkbox"
+                                checked={formFConfig.fillRegistrationNo !== false}
+                                onChange={(e) => setFormFConfig('fillRegistrationNo', e.target.checked)}
+                                style={{ width: 16, height: 16 }}
+                            />
+
+                            <div>
+                                <div className="font-semibold">Doctor name</div>
+                                <div className="text-xs text-tertiary">Section B, item 9 & declarations</div>
+                            </div>
+                            <input
+                                type="checkbox"
+                                checked={formFConfig.fillDoctorName !== false}
+                                onChange={(e) => setFormFConfig('fillDoctorName', e.target.checked)}
+                                style={{ width: 16, height: 16 }}
+                            />
+                        </div>
+                    </div>
+
+                    <button className="btn btn-primary btn-sm" style={{ alignSelf: 'flex-start' }} onClick={saveFormFSettings}>
+                        <Save size={16} /> Save Form F settings
+                    </button>
                 </div>
             )}
 
