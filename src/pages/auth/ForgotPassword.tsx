@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Mail, ArrowRight, ArrowLeft, CheckCircle } from 'lucide-react';
-import { authAPI } from '../../services/api';
+import { authApi } from '../../api';
 import './Auth.css';
 
 const ForgotPassword: React.FC = () => {
@@ -17,7 +17,7 @@ const ForgotPassword: React.FC = () => {
         setIsLoading(true);
 
         try {
-            await authAPI.forgotPassword(email);
+            await authApi.forgotPassword(email);
             setIsSuccess(true);
         } catch (err: unknown) {
             const errorMessage = err instanceof Error ? err.message : 'Failed to send reset email. Please try again.';

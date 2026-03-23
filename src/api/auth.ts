@@ -1,20 +1,17 @@
-import client from './client';
+import axiosClient from './axiosClient';
 
 export const authApi = {
     login: (email: string, password: string) =>
-        client.post('/login', { email, password }),
-
+        axiosClient.post('/auth/doctor-login', { email, password }),
     register: (data: {
         email: string;
         password: string;
         firstName: string;
         lastName: string;
         phone?: string;
-    }) => client.post('/register', data),
-
+    }) => axiosClient.post('/auth/doctor-register', data),
     staffLogin: (username: string, password: string) =>
-        client.post('/staff/login', { username, password }),
-
+        axiosClient.post('/auth/staff-login', { username, password }),
     setupOrganization: (data: {
         organizationName: string;
         organizationAddress?: string;
@@ -31,8 +28,7 @@ export const authApi = {
             xrayPrice?: number;
             defaultPrice?: number;
         };
-    }) => client.post('/organization/setup', data),
-
+    }) => axiosClient.post('/organization/setup', data),
     createStaff: (data: {
         username: string;
         password: string;
@@ -41,11 +37,9 @@ export const authApi = {
         phone?: string;
         salary?: number;
         changePasswordOnLogin?: boolean;
-    }) => client.post('/staff/create', data),
-
+    }) => axiosClient.post('/organization/staff', data),
     forgotPassword: (email: string) =>
-        client.post('/staff/forgot-password', { email }),
-
+        axiosClient.post('/auth/staff-forgot-password', { email }),
     resetPassword: (userId: string, newPassword: string, confirmPassword: string) =>
-        client.post('/admin/reset-password', { userId, newPassword, confirmPassword }),
+        axiosClient.post('/auth/admin-reset-password', { userId, newPassword, confirmPassword }),
 };

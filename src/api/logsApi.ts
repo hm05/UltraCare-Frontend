@@ -1,6 +1,5 @@
-import client from './client';
+import axiosClient from './axiosClient';
 
 export const logsApi = {
-    // Fetch organization-specific activity logs securely
-    getLogs: () => client.get('/logs'),
+    list: () => axiosClient.get('/logs'),
 };
