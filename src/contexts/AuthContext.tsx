@@ -46,7 +46,6 @@ function clearSession() {
     sessionStorage.removeItem(TOKEN_KEY);
     sessionStorage.removeItem(USER_KEY);
     sessionStorage.removeItem(TOKEN_EXPIRY_KEY);
-    // Also clear any legacy localStorage entries from old versions
     localStorage.removeItem('accessToken');
     localStorage.removeItem('user');
 }

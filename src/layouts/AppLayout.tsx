@@ -45,13 +45,13 @@ export default function AppLayout() {
                 <div className="sidebar-header">
                     <Link to="/dashboard" className="sidebar-logo">
                         <img
-                            src={sidebarCollapsed 
-                                ? (theme === 'light' 
-                                    ? 'https://objectstorage.ap-mumbai-1.oraclecloud.com/n/bmuzdalqtcix/b/UltraCare-assets/o/icon-light-mode.svg' 
-                                    : 'https://objectstorage.ap-mumbai-1.oraclecloud.com/n/bmuzdalqtcix/b/UltraCare-assets/o/icon-dark-mode.svg')
-                                : (theme === 'light' 
-                                    ? 'https://objectstorage.ap-mumbai-1.oraclecloud.com/n/bmuzdalqtcix/b/UltraCare-assets/o/logo-light-mode.svg' 
-                                    : 'https://objectstorage.ap-mumbai-1.oraclecloud.com/n/bmuzdalqtcix/b/UltraCare-assets/o/logo-dark-mode.svg')
+                            src={sidebarCollapsed
+                                ? (theme === 'light'
+                                    ? '../../../public/icon-light-mode.svg'
+                                    : '../../../public/icon-dark-mode.svg')
+                                : (theme === 'light'
+                                    ? '../../../public/logo-light-mode.svg'
+                                    : '../../../public/logo-dark-mode.svg')
                             }
                             alt="UltraCare"
                             className="logo-img"

@@ -2,7 +2,7 @@ import axios from 'axios';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
-const client = axios.create({
+const axiosClient = axios.create({
     baseURL: API_BASE_URL,
     headers: {
         'Content-Type': 'application/json',
@@ -12,7 +12,7 @@ const client = axios.create({
 });
 
 // ─── Attach auth token ────────────────────────────────────────────────────
-client.interceptors.request.use((config) => {
+axiosClient.interceptors.request.use((config) => {
     // Read from sessionStorage (not localStorage) — see AuthContext for rationale
     const token = sessionStorage.getItem('uc_token');
     if (token) {
@@ -22,17 +22,17 @@ client.interceptors.request.use((config) => {
 });
 
 // ─── Handle auth errors ───────────────────────────────────────────────────
-client.interceptors.response.use(
+axiosClient.interceptors.response.use(
     (response) => response,
     (error) => {
         if (error.response?.status === 401) {
             const url: string | undefined = error.config?.url;
             // Do NOT auto-logout on auth endpoints themselves — let the UI show the error
-            const isAuthEndpoint = url === '/login'
-                || url === '/register'
-                || url === '/staff/login'
-                || url === '/staff/forgot-password'
-                || url === '/admin/reset-password';
+            const isAuthEndpoint = url === '/api/auth/doctor-login'
+                || url === '/api/auth/doctor-register'
+                || url === '/api/auth/staff-login'
+                || url === '/api/auth/staff-forgot-password'
+                || url === '/api/auth/admin-reset-password';
 
             if (!isAuthEndpoint) {
                 // Clear session and redirect to login
@@ -49,4 +49,4 @@ client.interceptors.response.use(
     }
 );
 
-export default client;
+export default axiosClient;

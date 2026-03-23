@@ -27,7 +27,7 @@ const Navbar = () => {
         <nav className={`navbar ${scrolled || isOpen ? 'scrolled' : ''}`}>
             <div className="navbar-container">
                 <a href="/" className="logo">
-                    UltraCare
+                    <img src="../assets/logo.png" alt="Logo" />
                 </a>
 
                 <div className="desktop-menu">

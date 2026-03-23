@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { Building2, Upload, X } from 'lucide-react';
 import { authApi } from '../../api/auth';
 import { useAuth } from '../../contexts/AuthContext';
-import client from '../../api/client';
+import axiosClient from '../../api/axiosClient';
 import toast from 'react-hot-toast';
 import '../auth/Auth.css';
 
@@ -65,7 +65,7 @@ export default function SetupOrganization() {
                 const formData = new FormData();
                 formData.append('file', logoFile);
                 formData.append('folder', 'logos');
-                const uploadRes = await client.post('/upload/file', formData, {
+                const uploadRes = await axiosClient.post('/upload/file', formData, {
                     headers: { 'Content-Type': 'multipart/form-data' },
                 });
                 logoUrl = uploadRes.data.url;
