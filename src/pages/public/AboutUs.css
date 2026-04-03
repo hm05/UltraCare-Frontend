@@ -1,0 +1,91 @@
+.about-page {
+    padding: var(--space-16) 0;
+}
+
+.about-mission {
+    margin-bottom: var(--space-16);
+}
+
+.mission-card {
+    padding: var(--space-10);
+}
+
+.mission-card h2 {
+    font-size: var(--font-size-2xl);
+    font-weight: 800;
+    margin-bottom: var(--space-5);
+}
+
+.mission-card p {
+    color: var(--text-secondary);
+    font-size: var(--font-size-md);
+    line-height: 1.8;
+    margin-bottom: var(--space-6);
+}
+
+.mission-values {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-3);
+}
+
+.value-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    color: var(--success);
+    font-weight: 500;
+    font-size: var(--font-size-sm);
+}
+
+.value-item span {
+    color: var(--text-primary);
+}
+
+.about-compliance {
+    text-align: center;
+}
+
+.compliance-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--space-6);
+}
+
+.compliance-card {
+    text-align: center;
+    padding: var(--space-8);
+}
+
+.compliance-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: var(--radius-lg);
+    background: var(--accent-light);
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto var(--space-4);
+}
+
+.compliance-card h3 {
+    font-size: var(--font-size-md);
+    font-weight: 600;
+    margin-bottom: var(--space-2);
+}
+
+.compliance-card p {
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+@media (max-width: 768px) {
+    .mission-values {
+        grid-template-columns: 1fr;
+    }
+
+    .compliance-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+}
