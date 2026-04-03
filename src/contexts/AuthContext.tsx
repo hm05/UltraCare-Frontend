@@ -113,6 +113,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }, [scheduleAutoLogout]);
 
     const login = useCallback(async (email: string, password: string) => {
+        // axiosClient interceptor unwraps the envelope — response.data is already AuthResult
         const { data } = await authApi.login(email, password);
         const userData: User = {
             id: data.user.id,
@@ -132,6 +133,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }, [scheduleAutoLogout]);
 
     const staffLogin = useCallback(async (username: string, password: string) => {
+        // axiosClient interceptor unwraps the envelope — response.data is already AuthResult
         const { data } = await authApi.staffLogin(username, password);
         const userData: User = {
             id: data.user.id,
