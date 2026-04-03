@@ -21,18 +21,37 @@ axiosClient.interceptors.request.use((config) => {
     return config;
 });
 
-// ─── Handle auth errors ───────────────────────────────────────────────────
+// ─── Unwrap backend envelope ──────────────────────────────────────────────
+// Every backend response has the shape: { success: boolean, message: string, data: T }
+// This interceptor transparently unwraps it so callers get response.data = T directly.
 axiosClient.interceptors.response.use(
-    (response) => response,
+    (response) => {
+        const envelope = response.data;
+        // Only unwrap JSON envelopes that follow our { success, data } contract
+        if (envelope && typeof envelope === 'object' && 'success' in envelope) {
+            if (envelope.success) {
+                // Replace response.data with the inner payload
+                response.data = envelope.data;
+            } else {
+                // success: false — surface as a rejected promise with the backend error message
+                const err: any = new Error(envelope.error || envelope.message || 'Request failed');
+                err.response = response;
+                err.isApiError = true;
+                return Promise.reject(err);
+            }
+        }
+        return response;
+    },
     (error) => {
         if (error.response?.status === 401) {
             const url: string | undefined = error.config?.url;
             // Do NOT auto-logout on auth endpoints themselves — let the UI show the error
-            const isAuthEndpoint = url === '/api/auth/doctor-login'
-                || url === '/api/auth/doctor-register'
-                || url === '/api/auth/staff-login'
-                || url === '/api/auth/staff-forgot-password'
-                || url === '/api/auth/admin-reset-password';
+            // Note: error.config.url is relative to baseURL, so it does NOT include '/api'
+            const isAuthEndpoint = url === '/auth/doctor-login'
+                || url === '/auth/doctor-register'
+                || url === '/auth/staff-login'
+                || url === '/auth/staff-forgot-password'
+                || url === '/auth/admin-reset-password';
 
             if (!isAuthEndpoint) {
                 // Clear session and redirect to login
