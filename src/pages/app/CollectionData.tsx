@@ -160,7 +160,7 @@ export default function CollectionData() {
                                     <Pie data={serviceData} cx="50%" cy="50%" innerRadius={55} outerRadius={85} paddingAngle={3} dataKey="value" stroke="none">
                                         {serviceData.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
                                     </Pie>
-                                    <Tooltip formatter={(v: number | undefined) => `₹${(v ?? 0).toLocaleString()}`} />
+                                    <Tooltip formatter={(v: unknown) => `₹${(Number(v) || 0).toLocaleString()}`} />
                                 </PieChart>
                             </ResponsiveContainer>
                             <div className="chart-legend">
