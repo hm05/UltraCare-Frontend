@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { casesApi, referralApi } from '../../api';
+import { casesApi, referralApi, organizationApi } from '../../api';
 import toast from 'react-hot-toast';
 import './CreateCase.css';
 
@@ -19,10 +19,22 @@ function calcAge(dob: string): { years: number; months: number } {
     return { years: Math.max(0, years), months: Math.max(0, months) };
 }
 
+function calcPregnancy(lmp: string): { weeks: number; days: number } {
+    const lmpDate = new Date(lmp);
+    const today = new Date();
+    const diffTime = today.getTime() - lmpDate.getTime();
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    if (diffDays < 0) return { weeks: 0, days: 0 };
+    const weeks = Math.floor(diffDays / 7);
+    const days = diffDays % 7;
+    return { weeks, days };
+}
+
 export default function CreateCase() {
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
     const [referralDoctors, setReferralDoctors] = useState<{ id: string; doctor_name: string }[]>([]);
+    const [staffList, setStaffList] = useState<{id: string; name: string}[]>([]);
     const [form, setForm] = useState({
         // Patient
         name: '', sex: 'Male' as string, dateOfBirth: '', ageYears: '', ageMonths: '',
@@ -34,17 +46,24 @@ export default function CreateCase() {
         amount: '', paymentMode: 'Cash' as string,
     });
 
-    // Fetch referral doctors on mount
+    // Fetch referral doctors and staff on mount
     useEffect(() => {
         referralApi.list().then(res => {
             setReferralDoctors(res.data.doctors ?? res.data ?? []);
         }).catch(() => { /* no referral doctors yet */ });
+
+        organizationApi.getHRStaffList().then((res: any) => {
+            const list = (res.data.staff || []).map((s: any) => ({
+                id: s.id,
+                name: `${s.first_name} ${s.last_name}`.trim() || s.name || ''
+            }));
+            setStaffList(list);
+        }).catch(() => {});
     }, []);
 
     const update = (key: string, val: string) => setForm(prev => ({ ...prev, [key]: val }));
     const isFemale = form.sex === 'Female';
 
-    /** When DOB changes, auto-fill age fields. */
     const handleDOBChange = (dob: string) => {
         if (dob) {
             const { years, months } = calcAge(dob);
@@ -56,6 +75,20 @@ export default function CreateCase() {
             }));
         } else {
             setForm(prev => ({ ...prev, dateOfBirth: '', ageYears: '', ageMonths: '' }));
+        }
+    };
+
+    const handleLMPChange = (lmp: string) => {
+        if (lmp) {
+            const { weeks, days } = calcPregnancy(lmp);
+            setForm(prev => ({
+                ...prev,
+                lmp,
+                pregnancyWeeks: String(weeks),
+                pregnancyDays: String(days),
+            }));
+        } else {
+            setForm(prev => ({ ...prev, lmp: '', pregnancyWeeks: '', pregnancyDays: '' }));
         }
     };
 
@@ -99,7 +132,6 @@ export default function CreateCase() {
         } catch (err: any) {
             const data = err.response?.data;
             if (data?.details) {
-                // Parse per-field validation errors from the backend
                 const messages: string[] = [];
                 for (const [field, errors] of Object.entries(data.details)) {
                     if (Array.isArray(errors)) {
@@ -160,7 +192,7 @@ export default function CreateCase() {
                             <div className="form-row">
                                 <div className="form-group"><label className="form-label">No. of Boys</label><input className="form-input" type="number" value={form.numberOfBoys} onChange={(e) => update('numberOfBoys', e.target.value)} /></div>
                                 <div className="form-group"><label className="form-label">No. of Girls</label><input className="form-input" type="number" value={form.numberOfGirls} onChange={(e) => update('numberOfGirls', e.target.value)} /></div>
-                                <div className="form-group"><label className="form-label">LMP</label><input className="form-input" type="date" value={form.lmp} onChange={(e) => update('lmp', e.target.value)} /></div>
+                                <div className="form-group"><label className="form-label">LMP</label><input className="form-input" type="date" value={form.lmp} onChange={(e) => handleLMPChange(e.target.value)} /></div>
                             </div>
                             <div className="form-row">
                                 <div className="form-group"><label className="form-label">Pregnancy (Weeks)</label><input className="form-input" type="number" placeholder="W" value={form.pregnancyWeeks} onChange={(e) => update('pregnancyWeeks', e.target.value)} /></div>
@@ -195,7 +227,19 @@ export default function CreateCase() {
                                 ))}
                             </select>
                         </div>
-                        <div className="form-group"><label className="form-label">Attending Staff</label><input className="form-input" placeholder="Staff name" value={form.attendingStaff} onChange={(e) => update('attendingStaff', e.target.value)} /></div>
+                        <div className="form-group">
+                            <label className="form-label">Attending Staff</label>
+                            <select 
+                              className="form-input" 
+                              value={form.attendingStaff} 
+                              onChange={(e) => update('attendingStaff', e.target.value)}
+                            >
+                              <option value="">None</option>
+                              {staffList.map(s => (
+                                <option key={s.id} value={s.id}>{s.name}</option>
+                              ))}
+                            </select>
+                        </div>
                     </div>
                 </div>
 

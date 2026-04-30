@@ -43,6 +43,11 @@
 
 .search-input:focus {
     box-shadow: none;
+    outline: none;
+}
+
+.search-input-wrapper:focus-within {
+    background: var(--bg-input);
 }
 
 .patient-grid {

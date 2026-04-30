@@ -55,14 +55,20 @@ export default function ReferralData() {
         } catch { toast.error('Delete failed'); }
     };
 
-    const handleExportDashboard = async (format: string) => {
+    const handleExportDashboard = async (format: 'pdf' | 'xlsx') => {
         try {
             toast.loading('Generating...');
             const res = await referralApi.exportDashboard({ format });
-            const blob = new Blob([res.data], { type: format === 'xlsx' ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' : 'text/html' });
-            const url = URL.createObjectURL(blob);
-            if (format === 'xlsx') { const a = document.createElement('a'); a.href = url; a.download = 'referral-dashboard.xlsx'; a.click(); }
-            else window.open(url);
+            if (format === 'xlsx') {
+                const blob = new Blob([res.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = 'referral-dashboard.xlsx';
+                a.click();
+            } else {
+                const blob = new Blob([res.data], { type: 'text/html' });
+                window.open(URL.createObjectURL(blob));
+            }
             toast.dismiss(); toast.success('Export ready!');
         } catch { toast.dismiss(); toast.error('Export failed'); }
     };
@@ -110,7 +116,7 @@ export default function ReferralData() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <h2 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 700 }}>Referral Doctors ({doctors.length})</h2>
                 <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-                    <button className="btn btn-outline btn-sm" onClick={() => handleExportDashboard('html')}><Download size={14} /> HTML</button>
+                    <button className="btn btn-outline btn-sm" onClick={() => handleExportDashboard('pdf')}><Download size={14} /> PDF</button>
                     <button className="btn btn-outline btn-sm" onClick={() => handleExportDashboard('xlsx')}><Download size={14} /> Excel</button>
                     <button className="btn btn-primary btn-sm" onClick={() => setShowAdd(!showAdd)}><Plus size={14} /> Add Doctor</button>
                 </div>
@@ -141,7 +147,7 @@ export default function ReferralData() {
                             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                             <XAxis dataKey="name" tick={{ fontSize: 11, fill: 'var(--text-tertiary)' }} />
                             <YAxis tick={{ fontSize: 11, fill: 'var(--text-tertiary)' }} />
-                            <Tooltip formatter={(v: number | undefined) => `₹${(v ?? 0).toLocaleString()}`} />
+                            <Tooltip formatter={(v: unknown) => `₹${(Number(v) || 0).toLocaleString()}`} />
                             <Bar dataKey="amount" fill="var(--accent)" radius={[6, 6, 0, 0]} maxBarSize={80} />
                         </BarChart>
                     </ResponsiveContainer>

@@ -39,7 +39,7 @@ export default function DoctorDashboard() {
                 casesApi.getDailyCases(),
                 organizationApi.getDashboard({ period: 'daily' }),
             ]);
-            setTodayCases(casesRes.data.cases || []);
+            setTodayCases(Array.isArray(casesRes.data) ? casesRes.data : []);
             setDashboard(dashRes.data);
         } catch (err) {
             console.error('Dashboard load error:', err);
@@ -139,7 +139,7 @@ export default function DoctorDashboard() {
                                             <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
                                         ))}
                                     </Pie>
-                                    <Tooltip formatter={(value: number | undefined) => `₹${(value ?? 0).toLocaleString()}`} />
+                                    <Tooltip formatter={(v: unknown) => `₹${(Number(v) || 0).toLocaleString()}`} />
                                 </PieChart>
                             </ResponsiveContainer>
                             <div className="chart-legend">

@@ -69,9 +69,12 @@ export default function Logs() {
 
     const filtered = useMemo(() => {
         return logs.filter(log => {
-            const actorName = `${log.user?.first_name || ''} ${log.user?.last_name || ''}`.toLowerCase();
+            const actorName = log.user?.username?.toLowerCase() || '';
+            const attendingName = log.attending_staff ? `${log.attending_staff.first_name} ${log.attending_staff.last_name}`.toLowerCase() : '';
+            const creatorName = log.case_creator?.username?.toLowerCase() || '';
             const q = searchQuery.toLowerCase();
             const matchesSearch = !q || actorName.includes(q) || log.action.includes(q)
+                || attendingName.includes(q) || creatorName.includes(q)
                 || JSON.stringify(log.details || {}).toLowerCase().includes(q);
             const matchesFilter = filterAction === 'all' || log.action === filterAction;
             return matchesSearch && matchesFilter;
@@ -224,16 +227,37 @@ export default function Logs() {
                                                         <span className="text-secondary text-xs">— {log.details.patient_name}</span>
                                                     )}
                                                 </div>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginTop: 2 }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginTop: 2, flexWrap: 'wrap' }}>
                                                     <span className="text-xs text-tertiary">
-                                                        {log.user?.first_name} {log.user?.last_name}
+                                                        {log.user?.username || 'Unknown'}
                                                     </span>
                                                     {log.user?.role && (
                                                         <span className="badge" style={{
                                                             fontSize: 10, padding: '1px 6px',
-                                                            background: log.user.role === 'doctor' ? 'var(--accent-light)' : 'var(--bg-secondary)',
-                                                            color: log.user.role === 'doctor' ? 'var(--accent)' : 'var(--text-tertiary)',
+                                                            background: log.user.role === 'doctor' || log.user.role === 'staff' ? 'var(--accent-light)' : 'var(--bg-secondary)',
+                                                            color: log.user.role === 'doctor' || log.user.role === 'staff' ? 'var(--accent)' : 'var(--text-tertiary)',
                                                         }}>{log.user.role}</span>
+                                                    )}
+                                                    {log.entity_type === 'case' && log.attending_staff && (
+                                                        <>
+                                                            <span className="text-xs text-tertiary">• Attending:</span>
+                                                            <span className="text-xs" style={{ color: 'var(--text-primary)' }}>
+                                                                {log.attending_staff.first_name} {log.attending_staff.last_name}
+                                                            </span>
+                                                        </>
+                                                    )}
+                                                    {log.entity_type === 'case' && log.case_creator && (
+                                                        <>
+                                                            <span className="text-xs text-tertiary">• Created by:</span>
+                                                            <span className="text-xs" style={{ color: 'var(--text-primary)' }}>
+                                                                {log.case_creator.username}
+                                                            </span>
+                                                            <span className="badge" style={{
+                                                                fontSize: 10, padding: '1px 6px',
+                                                                background: log.case_creator.role === 'doctor' || log.case_creator.role === 'staff' ? 'var(--accent-light)' : 'var(--bg-secondary)',
+                                                                color: log.case_creator.role === 'doctor' || log.case_creator.role === 'staff' ? 'var(--accent)' : 'var(--text-tertiary)',
+                                                            }}>{log.case_creator.role}</span>
+                                                        </>
                                                     )}
                                                 </div>
                                             </div>

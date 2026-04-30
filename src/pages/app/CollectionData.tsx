@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { collectionApi } from '../../api';
-import { Download, FileText, Settings2 } from 'lucide-react';
+import { Download, Settings2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const CHART_COLORS = ['#0071E3', '#30D158', '#FF9F0A', '#FF3B30', '#AF52DE', '#FF6482'];
@@ -68,12 +68,9 @@ export default function CollectionData() {
             if (modFormat === 'pdf') {
                 const blob = new Blob([res.data], { type: 'text/html' });
                 window.open(URL.createObjectURL(blob));
-            } else if (modFormat === 'xlsx') {
+            } else {
                 const blob = new Blob([res.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
                 const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `collection-modified-${startDate}.xlsx`; a.click();
-            } else {
-                const blob = new Blob([res.data], { type: 'text/markdown' });
-                const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `collection-modified-${startDate}.md`; a.click();
             }
             toast.dismiss(); toast.success('Modified export ready!');
             setShowModified(false);
@@ -106,7 +103,6 @@ export default function CollectionData() {
                 <div style={{ marginLeft: 'auto', display: 'flex', gap: 'var(--space-2)' }}>
                     <button className="btn btn-outline btn-sm" onClick={() => handleExport('pdf')}><Download size={14} /> PDF</button>
                     <button className="btn btn-outline btn-sm" onClick={() => handleExport('xlsx')}><Download size={14} /> Excel</button>
-                    <button className="btn btn-outline btn-sm" onClick={() => handleExport('md')}><FileText size={14} /> MD</button>
                     <button className="btn btn-sm" onClick={() => setShowModified(!showModified)}
                         style={{ background: 'var(--accent-secondary, #FF9F0A)', color: '#fff', border: 'none' }}>
                         <Settings2 size={14} /> Modified
@@ -135,7 +131,6 @@ export default function CollectionData() {
                             <select className="form-input" value={modFormat} onChange={e => setModFormat(e.target.value as any)}>
                                 <option value="pdf">PDF</option>
                                 <option value="xlsx">Excel</option>
-                                <option value="md">Markdown</option>
                             </select>
                         </div>
                     </div>
@@ -160,7 +155,7 @@ export default function CollectionData() {
                                     <Pie data={serviceData} cx="50%" cy="50%" innerRadius={55} outerRadius={85} paddingAngle={3} dataKey="value" stroke="none">
                                         {serviceData.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
                                     </Pie>
-                                    <Tooltip formatter={(v: number | undefined) => `₹${(v ?? 0).toLocaleString()}`} />
+                                    <Tooltip formatter={(v: unknown) => `₹${(Number(v) || 0).toLocaleString()}`} />
                                 </PieChart>
                             </ResponsiveContainer>
                             <div className="chart-legend">

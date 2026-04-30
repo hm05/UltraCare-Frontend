@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { Shield, Activity, BarChart3, Users, FileText, Cloud, ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
 import './Home.css';
 
 const fadeUp = {
@@ -29,6 +30,7 @@ const stats = [
 ];
 
 export default function Home() {
+    const { isAuthenticated } = useAuth();
     return (
         <div className="home-page">
             {/* Hero */}
@@ -54,8 +56,8 @@ export default function Home() {
                             instant report generation, and real-time financial analytics — all in one elegant platform.
                         </motion.p>
                         <motion.div className="hero-actions" custom={3} variants={fadeUp}>
-                            <Link to="/signup" className="btn btn-primary btn-lg">
-                                Get Started Free <ArrowRight size={18} />
+                            <Link to={isAuthenticated ? "/dashboard" : "/signup"} className="btn btn-primary btn-lg">
+                                {isAuthenticated ? "Go to Dashboard" : "Get Started Free"} <ArrowRight size={18} />
                             </Link>
                             <Link to="/about-us" className="btn btn-secondary btn-lg">
                                 Learn More
@@ -260,8 +262,8 @@ export default function Home() {
                     >
                         <h2>Ready to Transform Your Clinic?</h2>
                         <p>Join hundreds of diagnostic centers already using UltraCare to streamline operations.</p>
-                        <Link to="/signup" className="btn btn-primary btn-lg">
-                            Start Free Trial <ArrowRight size={18} />
+                        <Link to={isAuthenticated ? "/dashboard" : "/signup"} className="btn btn-primary btn-lg">
+                            {isAuthenticated ? "Go to Dashboard" : "Start Free Trial"} <ArrowRight size={18} />
                         </Link>
                     </motion.div>
                 </div>

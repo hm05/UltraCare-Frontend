@@ -1,12 +1,14 @@
 import React from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useTheme } from '../contexts/ThemeContext';
+import { useAuth } from '../contexts/AuthContext';
 import { Sun, Moon, Menu, X } from 'lucide-react';
 import './PublicLayout.css';
 
 export default function PublicLayout() {
     const { theme, toggleTheme } = useTheme();
     const location = useLocation();
+    const { isAuthenticated } = useAuth();
     const [menuOpen, setMenuOpen] = React.useState(false);
 
     const navLinks = [
@@ -20,7 +22,7 @@ export default function PublicLayout() {
             <header className="public-header">
                 <div className="container public-header-inner">
                     <Link to="/" className="public-logo">
-                        <img src={theme === 'light' ? '../../../public/logo-light-mode.svg' : '../../../public/logo-dark-mode.svg'} alt="UltraCare" className="logo-img" />
+                        <img src={theme === 'light' ? '/logo-light-mode.svg' : '/logo-dark-mode.svg'} alt="UltraCare" className="logo-img" />
                     </Link>
 
                     <nav className={`public-nav ${menuOpen ? 'open' : ''}`}>
@@ -35,11 +37,17 @@ export default function PublicLayout() {
                             </Link>
                         ))}
                         <div className="nav-actions">
-                            <button onClick={toggleTheme} className="btn-icon theme-toggle" aria-label="Toggle theme">
+                            <button onClick={toggleTheme} className="btn-icon theme-toggle">
                                 {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
                             </button>
-                            <Link to="/login" className="btn btn-outline btn-sm">Log In</Link>
-                            <Link to="/signup" className="btn btn-primary btn-sm">Sign Up</Link>
+                            {isAuthenticated ? (
+                                <Link to="/dashboard" className="btn btn-primary btn-sm">Dashboard</Link>
+                            ) : (
+                                <>
+                                    <Link to="/login" className="btn btn-outline btn-sm">Log In</Link>
+                                    <Link to="/signup" className="btn btn-primary btn-sm">Sign Up</Link>
+                                </>
+                            )}
                         </div>
                     </nav>
 
@@ -56,7 +64,7 @@ export default function PublicLayout() {
             <footer className="public-footer">
                 <div className="container public-footer-inner">
                     <div className="footer-brand">
-                        <img src={theme === 'light' ? '../../../public/logo-light-mode.svg' : '../../../public/logo-dark-mode.svg'} alt="UltraCare" className="logo-img" style={{ height: 32 }} />
+                        <img src={theme === 'light' ? '/logo-light-mode.svg' : '/logo-dark-mode.svg'} alt="UltraCare" className="logo-img" style={{ height: 32 }} />
                         <p className="text-sm text-secondary">
                             Advanced Radiology Clinic Management System
                         </p>
