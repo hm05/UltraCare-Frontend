@@ -47,11 +47,11 @@ export default function AppLayout() {
                         <img
                             src={sidebarCollapsed
                                 ? (theme === 'light'
-                                    ? '../../../public/icon-light-mode.svg'
-                                    : '../../../public/icon-dark-mode.svg')
+                                    ? '/icon-light-mode.svg'
+                                    : '/icon-dark-mode.svg')
                                 : (theme === 'light'
-                                    ? '../../../public/logo-light-mode.svg'
-                                    : '../../../public/logo-dark-mode.svg')
+                                    ? '/logo-light-mode.svg'
+                                    : '/logo-dark-mode.svg')
                             }
                             alt="UltraCare"
                             className="logo-img"
@@ -108,10 +108,10 @@ export default function AppLayout() {
                     <div className="app-header-right">
                         <div className="user-info">
                             <div className="user-avatar">
-                                {user?.firstName?.charAt(0)}{user?.lastName?.charAt(0)}
+                                {(user?.username ?? user?.firstName ?? 'U').charAt(0).toUpperCase()}
                             </div>
                             {<span className="user-name">
-                                {user?.firstName} {user?.lastName}
+                                {user?.username || `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim() || user?.role}
                             </span>}
                             <span className="badge badge-primary">{user?.role}</span>
                         </div>

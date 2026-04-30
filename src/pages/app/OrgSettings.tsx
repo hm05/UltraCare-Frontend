@@ -1,21 +1,28 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { organizationApi, uploadApi } from '../../api';
 import { authApi } from '../../api/auth';
 import { Building2, DollarSign, Users, FileText, Plus, Trash2, Save, Pencil, Key, Eye, EyeOff, Upload } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function OrgSettings() {
-    const [tab, setTab] = useState<'info' | 'pricing' | 'staff' | 'templates' | 'formF'>('info');
+    const navigate = useNavigate();
+    const [tab, setTab] = useState<'info' | 'pricing' | 'users' | 'hrstaff' | 'templates' | 'formF'>('info');
     const [loading, setLoading] = useState(true);
     const [org, setOrg] = useState<any>({});
     const [pricing, setPricing] = useState<any>({});
-    const [staff, setStaff] = useState<any[]>([]);
+    const [users, setUsers] = useState<any[]>([]);
+    const [hrStaff, setHrStaff] = useState<any[]>([]);
     const [templates, setTemplates] = useState<any[]>([]);
     const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
 
-    // Staff creation form
-    const [showAddStaff, setShowAddStaff] = useState(false);
-    const [newStaff, setNewStaff] = useState({ username: '', password: '', firstName: '', lastName: '', phone: '', salary: '', changePasswordOnLogin: false });
+    // User creation form
+    const [showAddUser, setShowAddUser] = useState(false);
+    const [newUser, setNewUser] = useState({ username: '', password: '', changePasswordOnLogin: false });
+
+    // HR Staff creation form
+    const [showAddHRStaff, setShowAddHRStaff] = useState(false);
+    const [newHRStaff, setNewHRStaff] = useState({ firstName: '', lastName: '', phone: '', birthday: '', salary: '' });
 
     // Staff password reset modal
     const [passwordResetStaff, setPasswordResetStaff] = useState<{ id: string; name: string } | null>(null);
@@ -28,14 +35,32 @@ export default function OrgSettings() {
 
     const loadAll = async () => {
         try {
-            const [orgRes, pricingRes, staffRes, templatesRes] = await Promise.all([
-                organizationApi.getInfo(), organizationApi.getPricing(), organizationApi.listStaff(), organizationApi.getTemplates(),
+            const [orgRes, pricingRes, usersRes, hrRes, templatesRes] = await Promise.allSettled([
+                organizationApi.getInfo(),
+                organizationApi.getPricing(),
+                organizationApi.listUsers(),
+                organizationApi.getHRStaffList(),
+                organizationApi.getTemplates(),
             ]);
-            setOrg(orgRes.data.organization || {});
-            setPricing(pricingRes.data.pricing || {});
-            setStaff(staffRes.data.staff || []);
-            setTemplates(templatesRes.data.templates || []);
-        } catch { console.error('Failed to load settings'); } finally { setLoading(false); }
+            if (orgRes.status === 'fulfilled') setOrg(orgRes.value.data.organization || {});
+            else console.error('Org info failed:', (orgRes as any).reason?.response?.data || (orgRes as any).reason?.message);
+
+            if (pricingRes.status === 'fulfilled') setPricing(pricingRes.value.data.pricing || {});
+            else console.error('Pricing failed:', (pricingRes as any).reason?.response?.data || (pricingRes as any).reason?.message);
+
+            if (usersRes.status === 'fulfilled') setUsers(usersRes.value.data.users || []);
+            else console.error('Users failed:', (usersRes as any).reason?.response?.data || (usersRes as any).reason?.message);
+
+            if (hrRes.status === 'fulfilled') setHrStaff(hrRes.value.data.staff || []);
+            else console.error('HR Staff failed:', (hrRes as any).reason?.response?.data || (hrRes as any).reason?.message);
+
+            if (templatesRes.status === 'fulfilled') setTemplates(templatesRes.value.data.templates || []);
+            else console.error('Templates failed:', (templatesRes as any).reason?.response?.data || (templatesRes as any).reason?.message);
+        } catch (e) {
+            console.error('Failed to load settings', e);
+        } finally {
+            setLoading(false);
+        }
     };
 
     const saveOrg = async () => {
@@ -99,25 +124,45 @@ export default function OrgSettings() {
         } catch (err: any) { toast.error(err.response?.data?.error || 'Save failed'); }
     };
 
-    const addStaff = async (e: React.FormEvent) => {
+    const addUser = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!newStaff.username || !newStaff.password || !newStaff.firstName || !newStaff.lastName) { toast.error('Required fields missing'); return; }
+        if (!newUser.username || !newUser.password) { toast.error('Required fields missing'); return; }
         try {
-            await authApi.createStaff({
-                ...newStaff,
-                salary: newStaff.salary ? Number(newStaff.salary) : undefined,
-                phone: newStaff.phone || undefined,
+            await authApi.createUser({
+                ...newUser
             });
-            toast.success('Staff created');
-            setShowAddStaff(false);
-            setNewStaff({ username: '', password: '', firstName: '', lastName: '', phone: '', salary: '', changePasswordOnLogin: false });
+            toast.success('User created');
+            setShowAddUser(false);
+            setNewUser({ username: '', password: '', changePasswordOnLogin: false });
             loadAll();
         } catch (err: any) { toast.error(err.response?.data?.error || 'Failed'); }
     };
 
-    const deleteStaff = async (id: string, name: string) => {
+    const addHRStaff = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!newHRStaff.firstName || !newHRStaff.lastName) { toast.error('Required fields missing'); return; }
+        try {
+            await organizationApi.createHRStaff({
+                ...newHRStaff,
+                salary: newHRStaff.salary ? Number(newHRStaff.salary) : undefined,
+                phone: newHRStaff.phone || undefined,
+                birthday: newHRStaff.birthday || undefined,
+            });
+            toast.success('Staff created');
+            setShowAddHRStaff(false);
+            setNewHRStaff({ firstName: '', lastName: '', phone: '', birthday: '', salary: '' });
+            loadAll();
+        } catch (err: any) { toast.error(err.response?.data?.error || 'Failed'); }
+    };
+
+    const deleteUser = async (id: string, name: string) => {
+        if (!confirm(`Delete user "${name}"?`)) return;
+        try { await organizationApi.deleteUser(id); toast.success('Deleted'); loadAll(); } catch { toast.error('Delete failed'); }
+    };
+
+    const deleteHRStaff = async (id: string, name: string) => {
         if (!confirm(`Delete staff "${name}"?`)) return;
-        try { await organizationApi.deleteStaff(id); toast.success('Deleted'); loadAll(); } catch { toast.error('Delete failed'); }
+        try { await organizationApi.deleteHRStaff(id); toast.success('Deleted'); loadAll(); } catch { toast.error('Delete failed'); }
     };
 
     const openResetPasswordModal = (userId: string, name: string) => {
@@ -170,7 +215,8 @@ export default function OrgSettings() {
     const tabs = [
         { key: 'info', label: 'Organisation', icon: Building2 },
         { key: 'pricing', label: 'Pricing', icon: DollarSign },
-        { key: 'staff', label: 'Staff', icon: Users },
+        { key: 'users', label: 'Users', icon: Users },
+        { key: 'hrstaff', label: 'Staff', icon: Users },
         { key: 'templates', label: 'Templates', icon: FileText },
         { key: 'formF', label: 'Form F', icon: FileText },
     ] as const;
@@ -233,63 +279,53 @@ export default function OrgSettings() {
                 </div>
             )}
 
-            {/* Staff */}
-            {tab === 'staff' && (
+            {/* Users */}
+            {tab === 'users' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
                     <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                        <button className="btn btn-primary btn-sm" onClick={() => setShowAddStaff(!showAddStaff)}><Plus size={14} /> Add Staff</button>
+                        <button className="btn btn-primary btn-sm" onClick={() => setShowAddUser(!showAddUser)}><Plus size={14} /> Add User</button>
                     </div>
-                    {showAddStaff && (
-                        <form onSubmit={addStaff} className="card" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+                    {showAddUser && (
+                        <form onSubmit={addUser} className="card" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
                             <div className="form-row">
-                                <div className="form-group"><label className="form-label">Username *</label><input className="form-input" placeholder="staff1" value={newStaff.username} onChange={(e) => setNewStaff({ ...newStaff, username: e.target.value })} required /></div>
-                                <div className="form-group"><label className="form-label">Password *</label><input className="form-input" type="password" placeholder="••••••••" value={newStaff.password} onChange={(e) => setNewStaff({ ...newStaff, password: e.target.value })} required /></div>
-                            </div>
-                            <div className="form-row">
-                                <div className="form-group"><label className="form-label">First Name *</label><input className="form-input" value={newStaff.firstName} onChange={(e) => setNewStaff({ ...newStaff, firstName: e.target.value })} required /></div>
-                                <div className="form-group"><label className="form-label">Last Name *</label><input className="form-input" value={newStaff.lastName} onChange={(e) => setNewStaff({ ...newStaff, lastName: e.target.value })} required /></div>
-                            </div>
-                            <div className="form-row">
-                                <div className="form-group"><label className="form-label">Phone</label><input className="form-input" value={newStaff.phone} onChange={(e) => setNewStaff({ ...newStaff, phone: e.target.value })} /></div>
-                                <div className="form-group"><label className="form-label">Salary (₹)</label><input className="form-input" type="number" value={newStaff.salary} onChange={(e) => setNewStaff({ ...newStaff, salary: e.target.value })} /></div>
+                                <div className="form-group"><label className="form-label">Username *</label><input className="form-input" placeholder="user1" value={newUser.username} onChange={(e) => setNewUser({ ...newUser, username: e.target.value })} required /></div>
+                                <div className="form-group"><label className="form-label">Password *</label><input className="form-input" type="password" placeholder="••••••••" value={newUser.password} onChange={(e) => setNewUser({ ...newUser, password: e.target.value })} required /></div>
                             </div>
                             <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', fontSize: 'var(--font-size-sm)', cursor: 'pointer' }}>
                                 <div
-                                    onClick={() => setNewStaff({ ...newStaff, changePasswordOnLogin: !newStaff.changePasswordOnLogin })}
+                                    onClick={() => setNewUser({ ...newUser, changePasswordOnLogin: !newUser.changePasswordOnLogin })}
                                     style={{
                                         width: 40, height: 22, borderRadius: 11, position: 'relative', cursor: 'pointer',
-                                        background: newStaff.changePasswordOnLogin ? 'var(--accent)' : 'var(--border)',
+                                        background: newUser.changePasswordOnLogin ? 'var(--accent)' : 'var(--border)',
                                         transition: 'background 0.2s',
                                     }}
                                 >
                                     <div style={{
                                         width: 18, height: 18, borderRadius: '50%', background: '#fff', position: 'absolute',
-                                        top: 2, left: newStaff.changePasswordOnLogin ? 20 : 2,
+                                        top: 2, left: newUser.changePasswordOnLogin ? 20 : 2,
                                         transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
                                     }} />
                                 </div>
                                 Require password change on first login
                             </label>
-                            <button type="submit" className="btn btn-primary btn-sm" style={{ alignSelf: 'flex-end' }}>Create Staff</button>
+                            <button type="submit" className="btn btn-primary btn-sm" style={{ alignSelf: 'flex-end' }}>Create User</button>
                         </form>
                     )}
                     <div className="widget">
                         <div className="table-wrapper">
                             <table>
-                                <thead><tr><th>Username</th><th>Name</th><th>Phone</th><th>Salary</th><th>Created</th><th>Actions</th></tr></thead>
+                                <thead><tr><th>Username</th><th>Role</th><th>Created</th><th>Actions</th></tr></thead>
                                 <tbody>
-                                    {staff.map((s: any) => (
+                                    {users.map((s: any) => (
                                         <tr key={s.id}>
                                             <td><span className="badge badge-primary">{s.username}</span></td>
-                                            <td className="font-semibold">{s.first_name} {s.last_name}</td>
-                                            <td className="text-secondary">{s.phone || '—'}</td>
-                                            <td>₹{Number(s.salary || 0).toLocaleString()}</td>
-                                            <td className="text-xs text-tertiary">{new Date(s.created_at).toLocaleDateString('en-IN')}</td>
+                                            <td>{s.role}</td>
+                                            <td className="text-xs text-tertiary">{new Date(s.created_at || s.createdAt).toLocaleDateString('en-IN')}</td>
                                             <td>
                                                 <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
                                                     <button 
                                                         className="btn-icon" 
-                                                        onClick={() => openResetPasswordModal(s.id, s.first_name)}
+                                                        onClick={() => openResetPasswordModal(s.id, s.username)}
                                                         title="Reset Password"
                                                         style={{ color: 'var(--warning)' }}
                                                     >
@@ -297,7 +333,70 @@ export default function OrgSettings() {
                                                     </button>
                                                     <button 
                                                         className="btn-icon" 
-                                                        onClick={() => deleteStaff(s.id, s.first_name)}
+                                                        onClick={() => deleteUser(s.id, s.username)}
+                                                        title="Delete User"
+                                                        style={{ color: 'var(--danger)' }}
+                                                    >
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    {users.length === 0 && <tr><td colSpan={4} className="text-center text-secondary" style={{ padding: 'var(--space-8)' }}>No user accounts yet</td></tr>}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* HR Staff */}
+            {tab === 'hrstaff' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                        <button className="btn btn-primary btn-sm" onClick={() => setShowAddHRStaff(!showAddHRStaff)}><Plus size={14} /> Add Staff</button>
+                    </div>
+                    {showAddHRStaff && (
+                        <form onSubmit={addHRStaff} className="card" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+                            <div className="form-row">
+                                <div className="form-group"><label className="form-label">First Name *</label><input className="form-input" value={newHRStaff.firstName} onChange={(e) => setNewHRStaff({ ...newHRStaff, firstName: e.target.value })} required /></div>
+                                <div className="form-group"><label className="form-label">Last Name *</label><input className="form-input" value={newHRStaff.lastName} onChange={(e) => setNewHRStaff({ ...newHRStaff, lastName: e.target.value })} required /></div>
+                            </div>
+                            <div className="form-row">
+                                <div className="form-group"><label className="form-label">Phone</label><input className="form-input" value={newHRStaff.phone} onChange={(e) => setNewHRStaff({ ...newHRStaff, phone: e.target.value })} /></div>
+                                <div className="form-group"><label className="form-label">Birthday</label><input className="form-input" type="date" value={newHRStaff.birthday} onChange={(e) => setNewHRStaff({ ...newHRStaff, birthday: e.target.value })} /></div>
+                            </div>
+                            <div className="form-row">
+                                <div className="form-group"><label className="form-label">Base Salary (₹)</label><input className="form-input" type="number" value={newHRStaff.salary} onChange={(e) => setNewHRStaff({ ...newHRStaff, salary: e.target.value })} /></div>
+                            </div>
+                            <button type="submit" className="btn btn-primary btn-sm" style={{ alignSelf: 'flex-end' }}>Create Staff</button>
+                        </form>
+                    )}
+                    <div className="widget">
+                        <div className="table-wrapper">
+                            <table>
+                                <thead><tr><th>Name</th><th>Phone</th><th>Salary</th><th>Absences (Mo)</th><th>Calc. Salary</th><th>Created</th><th>Actions</th></tr></thead>
+                                <tbody>
+                                    {hrStaff.map((s: any) => (
+                                        <tr
+                                            key={s.id}
+                                            onClick={() => navigate(`/staff/${s.id}`)}
+                                            style={{ cursor: 'pointer' }}
+                                            onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-hover)')}
+                                            onMouseLeave={e => (e.currentTarget.style.background = '')}
+                                        >
+                                            <td className="font-semibold">{s.name || `${s.first_name} ${s.last_name}`}</td>
+                                            <td className="text-secondary">{s.phone || '—'}</td>
+                                            <td>₹{Number(s.base_salary || 0).toLocaleString()}</td>
+                                            <td><span className="badge badge-warning">{s.absences_this_month || 0}</span></td>
+                                            <td className="font-semibold" style={{ color: 'var(--success)' }}>₹{Number(s.calculated_salary || 0).toLocaleString()}</td>
+                                            <td className="text-xs text-tertiary">{new Date(s.created_at || s.createdAt).toLocaleDateString('en-IN')}</td>
+                                            <td>
+                                                <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+                                                    <button 
+                                                        className="btn-icon" 
+                                                        onClick={e => { e.stopPropagation(); deleteHRStaff(s.id, s.name); }}
                                                         title="Delete Staff"
                                                         style={{ color: 'var(--danger)' }}
                                                     >
@@ -307,7 +406,7 @@ export default function OrgSettings() {
                                             </td>
                                         </tr>
                                     ))}
-                                    {staff.length === 0 && <tr><td colSpan={6} className="text-center text-secondary" style={{ padding: 'var(--space-8)' }}>No staff members yet</td></tr>}
+                                    {hrStaff.length === 0 && <tr><td colSpan={7} className="text-center text-secondary" style={{ padding: 'var(--space-8)' }}>No staff yet</td></tr>}
                                 </tbody>
                             </table>
                         </div>

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { referralApi } from '../../api';
-import { ArrowLeft, Building2, Percent, Users, IndianRupee, Download, Calendar } from 'lucide-react';
+import { ArrowLeft, Building2, Percent, Users, IndianRupee, Download, Calendar, Edit, Save, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 // Indian FY helper
@@ -19,7 +19,11 @@ export default function ReferralDoctorDetail() {
     const [loading, setLoading] = useState(true);
     const [startDate, setStartDate] = useState(getIndianFYStart());
     const [endDate, setEndDate] = useState(new Date().toISOString().slice(0, 10));
-    const [exporting, setExporting] = useState(false);
+    const [exportingPdf, setExportingPdf] = useState(false);
+    const [exportingExcel, setExportingExcel] = useState(false);
+    const [editing, setEditing] = useState(false);
+    const [editForm, setEditForm] = useState({ doctorName: '', hospitalName: '', designation: '', phone: '', referralPercentage: '' });
+    const [saving, setSaving] = useState(false);
 
     const loadReport = useCallback(async (start: string, end: string) => {
         if (!doctorId) return;
@@ -37,9 +41,30 @@ export default function ReferralDoctorDetail() {
 
     useEffect(() => { loadReport(startDate, endDate); }, []);
 
-    const handleExport = async () => {
+    const handleSave = async () => {
         if (!doctorId) return;
-        setExporting(true);
+        setSaving(true);
+        try {
+            await referralApi.update(doctorId, {
+                doctorName: editForm.doctorName,
+                hospitalName: editForm.hospitalName,
+                designation: editForm.designation,
+                phone: editForm.phone,
+                referralPercentage: Number(editForm.referralPercentage)
+            });
+            toast.success('Doctor details updated successfully');
+            setEditing(false);
+            loadReport(startDate, endDate);
+        } catch (err: any) {
+            toast.error(err.response?.data?.error || 'Failed to update doctor');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleExportPdf = async () => {
+        if (!doctorId) return;
+        setExportingPdf(true);
         try {
             const res = await referralApi.exportDoctorPdf(doctorId, { startDate, endDate });
             const blob = new Blob([res.data], { type: 'text/html' });
@@ -47,9 +72,26 @@ export default function ReferralDoctorDetail() {
             const win = window.open(url, '_blank');
             if (!win) toast.error('Pop-up blocked. Please allow pop-ups for this site.');
         } catch {
-            toast.error('Export failed');
+            toast.error('PDF export failed');
         } finally {
-            setExporting(false);
+            setExportingPdf(false);
+        }
+    };
+
+    const handleExportExcel = async () => {
+        if (!doctorId) return;
+        setExportingExcel(true);
+        try {
+            const res = await referralApi.exportDoctorExcel(doctorId, { startDate, endDate });
+            const blob = new Blob([res.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `referral-${doctor.name.replace(/\s+/g, '-')}.xlsx`;
+            a.click();
+        } catch {
+            toast.error('Excel export failed');
+        } finally {
+            setExportingExcel(false);
         }
     };
 
@@ -76,30 +118,120 @@ export default function ReferralDoctorDetail() {
 
             {/* Doctor info header */}
             <div className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 'var(--space-4)' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-                    <h2 style={{ fontSize: 'var(--font-size-xl)', fontWeight: 700, letterSpacing: '-0.02em' }}>
-                        {doctor.name}
-                    </h2>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)', flexWrap: 'wrap' }}>
-                        <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>
-                            <Building2 size={14} /> {doctor.hospitalName}
-                        </span>
-                        {doctor.designation && (
-                            <span className="badge badge-primary">{doctor.designation}</span>
-                        )}
-                        <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 'var(--font-size-sm)', color: 'var(--warning)' }}>
-                            <Percent size={14} /> {commissionRate}% commission
-                        </span>
-                    </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', flex: 1 }}>
+                    {!editing ? (
+                        <>
+                            <h2 style={{ fontSize: 'var(--font-size-xl)', fontWeight: 700, letterSpacing: '-0.02em' }}>
+                                {doctor.name}
+                            </h2>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)', flexWrap: 'wrap' }}>
+                                <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>
+                                    <Building2 size={14} /> {doctor.hospitalName}
+                                </span>
+                                {doctor.designation && (
+                                    <span className="badge badge-primary">{doctor.designation}</span>
+                                )}
+                                <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 'var(--font-size-sm)', color: 'var(--warning)' }}>
+                                    <Percent size={14} /> {commissionRate}% commission
+                                </span>
+                            </div>
+                        </>
+                    ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+                            <div className="form-row">
+                                <div className="form-group">
+                                    <label className="form-label">Doctor Name</label>
+                                    <input 
+                                        className="form-input" 
+                                        value={editForm.doctorName} 
+                                        onChange={(e) => setEditForm({ ...editForm, doctorName: e.target.value })}
+                                        required 
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Hospital</label>
+                                    <input 
+                                        className="form-input" 
+                                        value={editForm.hospitalName} 
+                                        onChange={(e) => setEditForm({ ...editForm, hospitalName: e.target.value })}
+                                        required 
+                                    />
+                                </div>
+                            </div>
+                            <div className="form-row">
+                                <div className="form-group">
+                                    <label className="form-label">Designation</label>
+                                    <input 
+                                        className="form-input" 
+                                        value={editForm.designation} 
+                                        onChange={(e) => setEditForm({ ...editForm, designation: e.target.value })}
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Phone</label>
+                                    <input 
+                                        className="form-input" 
+                                        value={editForm.phone} 
+                                        onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Commission %</label>
+                                    <input 
+                                        className="form-input" 
+                                        type="number" 
+                                        value={editForm.referralPercentage} 
+                                        onChange={(e) => setEditForm({ ...editForm, referralPercentage: e.target.value })}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
-                <button
-                    className="btn btn-outline btn-sm"
-                    onClick={handleExport}
-                    disabled={exporting}
-                    style={{ alignSelf: 'flex-start' }}
-                >
-                    <Download size={14} /> {exporting ? 'Exporting...' : 'Export PDF'}
-                </button>
+                <div style={{ display: 'flex', gap: 'var(--space-2)', alignSelf: 'flex-start' }}>
+                    {!editing ? (
+                        <>
+                            <button
+                                className="btn btn-outline btn-sm"
+                                onClick={() => {
+                                    setEditing(true);
+                                    setEditForm({
+                                        doctorName: doctor.name,
+                                        hospitalName: doctor.hospitalName,
+                                        designation: doctor.designation || '',
+                                        phone: doctor.phone || '',
+                                        referralPercentage: doctor.referralPercentage.toString()
+                                    });
+                                }}
+                            >
+                                <Edit size={14} /> Edit
+                            </button>
+                            <button
+                                className="btn btn-outline btn-sm"
+                                onClick={handleExportPdf}
+                                disabled={exportingPdf}
+                            >
+                                <Download size={14} /> {exportingPdf ? 'Exporting...' : 'PDF'}
+                            </button>
+                            <button
+                                className="btn btn-outline btn-sm"
+                                onClick={handleExportExcel}
+                                disabled={exportingExcel}
+                            >
+                                <Download size={14} /> {exportingExcel ? 'Exporting...' : 'Excel'}
+                            </button>
+                        </>
+                    ) : (
+                        <>
+                            <button className="btn btn-primary btn-sm" onClick={handleSave} disabled={saving}>
+                                <Save size={14} /> {saving ? 'Saving...' : 'Save'}
+                            </button>
+                            <button className="btn btn-secondary btn-sm" onClick={() => setEditing(false)}>
+                                <X size={14} /> Cancel
+                            </button>
+                        </>
+                    )}
+                </div>
             </div>
 
             {/* Date range filter */}

@@ -39,7 +39,7 @@ export default function DoctorDashboard() {
                 casesApi.getDailyCases(),
                 organizationApi.getDashboard({ period: 'daily' }),
             ]);
-            setTodayCases(casesRes.data.cases || []);
+            setTodayCases(Array.isArray(casesRes.data) ? casesRes.data : []);
             setDashboard(dashRes.data);
         } catch (err) {
             console.error('Dashboard load error:', err);

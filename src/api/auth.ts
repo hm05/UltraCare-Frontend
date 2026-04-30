@@ -29,15 +29,11 @@ export const authApi = {
             defaultPrice?: number;
         };
     }) => axiosClient.post('/organization/setup', data),
-    createStaff: (data: {
+    createUser: (data: {
         username: string;
         password: string;
-        firstName: string;
-        lastName: string;
-        phone?: string;
-        salary?: number;
         changePasswordOnLogin?: boolean;
-    }) => axiosClient.post('/organization/staff', data),
+    }) => axiosClient.post('/organization/users', data),
     forgotPassword: (email: string) =>
         axiosClient.post('/auth/staff-forgot-password', { email }),
     resetPassword: (userId: string, newPassword: string, confirmPassword: string) =>

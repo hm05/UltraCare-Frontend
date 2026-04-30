@@ -5,8 +5,11 @@ export const referralApi = {
     list: () => axiosClient.get('/referral/doctors'),
     getReport: (doctorId: string, params?: { startDate?: string; endDate?: string }) =>
         axiosClient.get(`/referral/doctors/${doctorId}/report`, { params }),
+    update: (doctorId: string, data: any) => axiosClient.put(`/referral/doctors/${doctorId}`, data),
     exportDoctorPdf: (doctorId: string, params?: { startDate?: string; endDate?: string }) =>
         axiosClient.get(`/referral/doctors/${doctorId}/export/pdf`, { params, responseType: 'text' }),
+    exportDoctorExcel: (doctorId: string, params?: { startDate?: string; endDate?: string }) =>
+        axiosClient.get(`/referral/doctors/${doctorId}/export/excel`, { params, responseType: 'blob' }),
     exportDashboard: (params?: { format?: string; startDate?: string; endDate?: string }) =>
         axiosClient.get('/referral/dashboard/export', { params, responseType: params?.format === 'xlsx' ? 'blob' : 'text' }),
     delete: (doctorId: string) => axiosClient.delete(`/referral/doctors/${doctorId}`),

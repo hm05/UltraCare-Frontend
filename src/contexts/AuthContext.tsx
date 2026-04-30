@@ -8,6 +8,7 @@ interface User {
     role: 'doctor' | 'staff' | 'admin';
     firstName: string;
     lastName: string;
+    username?: string;
     organizationId: string | null;
     profilePictureUrl?: string | null;
 }
@@ -121,6 +122,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             role: data.user.role,
             firstName: data.user.firstName,
             lastName: data.user.lastName,
+            username: data.user.username ?? undefined,
             organizationId: data.user.organizationId,
             profilePictureUrl: data.user.profilePictureUrl ?? null,
         };
@@ -141,6 +143,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             role: data.user.role,
             firstName: data.user.firstName,
             lastName: data.user.lastName,
+            username: data.user.username ?? undefined,
             organizationId: data.user.organizationId,
             profilePictureUrl: data.user.profilePictureUrl ?? null,
         };

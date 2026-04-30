@@ -1,9 +1,11 @@
-import { useState, useEffect, useMemo, type FC, type ChangeEvent, type MouseEvent } from 'react';
+import { useState, useEffect, useMemo, lazy, Suspense, useRef, type FC, type ChangeEvent, type MouseEvent } from 'react';
+const PdfViewer = lazy(() => import('../../components/PdfViewer'));
+const MedicalImageViewer = lazy(() => import('../../components/MedicalImageViewer'));
 import { useParams, useNavigate } from 'react-router-dom';
 import { casesApi, uploadApi, organizationApi } from '../../api';
 import { useAuth } from '../../contexts/AuthContext';
 import {
-    Pencil, Save, X, Trash2, Download, Printer, Mail, FileText,
+    Pencil, Save, X, Trash2, Download, Mail, FileText,
     Upload, ArrowLeft, ClipboardList, Image, File, Eye,
     ChevronDown, ChevronRight,
 } from 'lucide-react';
@@ -11,7 +13,7 @@ import toast from 'react-hot-toast';
 
 const SERVICE_TYPES = ['Sonography', 'Obs. Sonography', 'X-Ray', 'C.T.', 'M.R.I.', 'N.A.'] as const;
 const PAYMENT_MODES = ['Cash', 'UPI', 'Card', 'Cheque', 'NEFT', 'Other'] as const;
-const UPLOAD_TYPES = ['Scan', 'X-Ray Film', 'Prescription', 'Lab Result', 'Other'] as const;
+const UPLOAD_TYPES = ['Scan', 'Prescription', 'Lab Result', 'Other'] as const;
 
 // ─── Preview Modal ─────────────────────────────────────────────────────────────
 type PreviewContent =
@@ -60,13 +62,13 @@ function PreviewModal({ content, onClose }: { content: PreviewContent; onClose: 
                         {!isImage && (
                             <button className="btn btn-sm btn-outline" onClick={() => {
                                 if (content.kind === 'html') {
-                                    const win = window.open('', '_blank');
-                                    if (win) { win.document.write(content.html); win.document.close(); win.print(); }
+                                    const blob = new Blob([content.html], { type: 'text/html' });
+                                    window.open(URL.createObjectURL(blob), '_blank');
                                 } else {
                                     window.open(content.url, '_blank');
                                 }
                             }}>
-                                <Printer size={14} /> Print
+                                <Download size={14} /> PDF
                             </button>
                         )}
                         <button className="btn btn-sm btn-outline" onClick={() => {
@@ -86,19 +88,36 @@ function PreviewModal({ content, onClose }: { content: PreviewContent; onClose: 
                 </div>
 
                 {/* Content */}
-                <div style={{ flex: 1, overflow: 'auto', background: isImage ? '#111' : '#fff', display: 'flex', alignItems: isImage ? 'center' : 'stretch', justifyContent: 'center' }}>
+                <div style={{ 
+                    flex: 1, 
+                    overflow: 'hidden', 
+                    background: (isImage || content.kind === 'pdf') ? 'var(--bg-tertiary)' : 'var(--bg-primary)', 
+                    display: 'flex', 
+                    alignItems: 'stretch', 
+                    justifyContent: 'center' 
+                }}>
                     {content.kind === 'html' && (
                         <iframe srcDoc={content.html} style={{ width: '100%', height: '100%', border: 'none' }} title={content.title} />
                     )}
                     {content.kind === 'image' && (
-                        <img
-                            src={content.url}
-                            alt={content.title}
-                            style={{ maxWidth: '100%', maxHeight: '80vh', objectFit: 'contain', display: 'block' }}
-                        />
+                        <Suspense fallback={
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-secondary)', background: '#000' }}>
+                                <div className="loader" style={{ width: 24, height: 24, borderTopColor: '#fff' }} />
+                            </div>
+                        }>
+                            <MedicalImageViewer url={content.url} />
+                        </Suspense>
                     )}
                     {content.kind === 'pdf' && (
-                        <iframe src={content.url} style={{ width: '100%', height: '100%', border: 'none' }} title={content.title} />
+                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                            <Suspense fallback={
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-secondary)', background: 'var(--bg-primary)' }}>
+                                    <div className="loader" style={{ width: 24, height: 24 }} />
+                                </div>
+                            }>
+                                <PdfViewer url={content.url} />
+                            </Suspense>
+                        </div>
                     )}
                 </div>
             </div>
@@ -163,6 +182,8 @@ export default function CaseDetail() {
     const { user } = useAuth();
     const isDoctor = user?.role === 'doctor' || user?.role === 'admin';
 
+    const loadedCaseIdRef = useRef<string | null>(null);
+
     const [loading, setLoading] = useState(true);
     const [caseData, setCaseData] = useState<any>(null);
     const [reports, setReports] = useState<any[]>([]);
@@ -197,6 +218,8 @@ export default function CaseDetail() {
 
     const loadCase = async () => {
         if (!caseId) return;
+        if (loadedCaseIdRef.current === caseId) return;
+        loadedCaseIdRef.current = caseId;
         setLoading(true);
         try {
             const res = await casesApi.getDetail(caseId);
@@ -561,10 +584,7 @@ export default function CaseDetail() {
                         </button>
                     )}
                     <button className="btn btn-sm btn-outline" onClick={() => handleExport('html')}>
-                        <Download size={14} /> Export
-                    </button>
-                    <button className="btn btn-sm btn-outline" onClick={() => handleExport('print')}>
-                        <Printer size={14} /> Print
+                        <Download size={14} /> PDF
                     </button>
                     {/* Email */}
                     <div style={{ position: 'relative' }}>
@@ -657,6 +677,8 @@ export default function CaseDetail() {
                             { label: 'Amount', value: `₹${Number(caseData.amount ?? 0).toLocaleString()}` },
                             { label: 'Payment', value: <span className={`badge ${caseData.payment_mode === 'Cash' ? 'badge-success' : 'badge-warning'}`}>{caseData.payment_mode}</span> },
                             { label: 'Referred By', value: caseData.referred_by || '—' },
+                            { label: 'Attending Staff', value: caseData.attending_staff_name || '—' },
+                            { label: 'Created By', value: caseData.created_by_username || '—' },
                         ].map(({ label, value }) => (
                             <div key={label}>
                                 <p className="text-xs text-tertiary" style={{ marginBottom: 2 }}>{label}</p>

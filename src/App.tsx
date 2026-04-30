@@ -23,6 +23,7 @@ import ReferralData from './pages/app/ReferralData';
 import OrgSettings from './pages/app/OrgSettings';
 import CaseDetail from './pages/app/CaseDetail';
 import ReferralDoctorDetail from './pages/app/ReferralDoctorDetail';
+import StaffDetail from './pages/app/StaffDetail';
 import Logs from './pages/app/Logs';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -72,6 +73,7 @@ function App() {
           <Route path="/referral/:doctorId" element={<DoctorOnlyRoute><ReferralDoctorDetail /></DoctorOnlyRoute>} />
           <Route path="/logs" element={<DoctorOnlyRoute><Logs /></DoctorOnlyRoute>} />
           <Route path="/settings" element={<DoctorOnlyRoute><OrgSettings /></DoctorOnlyRoute>} />
+          <Route path="/staff/:staffId" element={<DoctorOnlyRoute><StaffDetail /></DoctorOnlyRoute>} />
         </Route>
 
         {/* Catch all */}

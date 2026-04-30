@@ -50,7 +50,7 @@ export default function Login() {
             <motion.div className="auth-card card" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
                 <div className="auth-header">
                     <Link to="/" className="auth-logo">
-                        <img src={theme === 'light' ? '../../../public/logo-light-mode.svg' : '../../../public/logo-dark-mode.svg'} alt="UltraCare" className="logo-img" style={{ height: 40 }} />
+                        <img src={theme === 'light' ? '/logo-light-mode.svg' : '/logo-dark-mode.svg'} alt="UltraCare" className="logo-img" style={{ height: 40 }} />
                     </Link>
                     <h1>Welcome Back</h1>
                     <p className="text-secondary">Sign in to your account</p>

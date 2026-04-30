@@ -194,7 +194,7 @@ input:focus,
 select:focus,
 textarea:focus {
   box-shadow: 0 0 0 3px var(--accent-light), 0 0 0 1px var(--accent);
-  background: var(--bg-primary);
+
 }
 
 input::placeholder,

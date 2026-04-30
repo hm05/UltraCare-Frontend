@@ -9,9 +9,12 @@ export default function StaffDashboard() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        casesApi.getDailyCases().then(res => {
-            setTodayCases(res.data.cases || []);
-        }).catch(console.error).finally(() => setLoading(false));
+        casesApi.getDailyCases()
+            .then((res) => {
+                setTodayCases(Array.isArray(res.data) ? res.data : []);
+            })
+            .catch(console.error)
+            .finally(() => setLoading(false));
     }, []);
 
     if (loading) {
@@ -67,7 +70,7 @@ export default function StaffDashboard() {
                             </thead>
                             <tbody>
                                 {todayCases.map((c: any) => (
-                                    <tr key={c.id}>
+                                    <tr key={c.id} style={{ cursor: 'pointer' }} onClick={() => window.location.href = `/case/${c.id}`}>
                                         <td><span className="badge badge-primary">{c.case_number}</span></td>
                                         <td>{c.patient?.name ?? '—'}</td>
                                         <td>{c.service_type}</td>
