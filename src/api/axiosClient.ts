@@ -42,7 +42,7 @@ axiosClient.interceptors.response.use(
         }
         return response;
     },
-    (error) => {
+    async (error) => {
         if (error.response?.status === 401) {
             const url: string | undefined = error.config?.url;
             // Do NOT auto-logout on auth endpoints themselves — let the UI show the error
@@ -51,13 +51,39 @@ axiosClient.interceptors.response.use(
                 || url === '/auth/doctor-register'
                 || url === '/auth/staff-login'
                 || url === '/auth/staff-forgot-password'
-                || url === '/auth/admin-reset-password';
+                || url === '/auth/admin-reset-password'
+                || url === '/auth/refresh';
 
             if (!isAuthEndpoint) {
+                // Try to refresh the token first
+                const refreshTokenValue = sessionStorage.getItem('uc_refresh_token');
+                if (refreshTokenValue) {
+                    try {
+                        const response = await fetch(`${import.meta.env.VITE_API_URL || '/api'}/auth/refresh`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ refreshToken: refreshTokenValue }),
+                        });
+                        const result = await response.json();
+                        if (result.success && result.data.accessToken) {
+                            // Token refreshed successfully, retry the original request
+                            const newToken = result.data.accessToken;
+                            const newExpiresIn = result.data.expiresIn ?? 900;
+                            sessionStorage.setItem('uc_token', newToken);
+                            const expiryMs = Date.now() + newExpiresIn * 1000;
+                            sessionStorage.setItem('uc_token_expiry', String(expiryMs));
+                            error.config.headers.Authorization = `Bearer ${newToken}`;
+                            return axiosClient(error.config);
+                        }
+                    } catch {
+                        // Refresh failed, proceed to logout
+                    }
+                }
                 // Clear session and redirect to login
                 sessionStorage.removeItem('uc_token');
                 sessionStorage.removeItem('uc_user');
                 sessionStorage.removeItem('uc_token_expiry');
+                sessionStorage.removeItem('uc_refresh_token');
                 // Also clear legacy localStorage
                 localStorage.removeItem('accessToken');
                 localStorage.removeItem('user');

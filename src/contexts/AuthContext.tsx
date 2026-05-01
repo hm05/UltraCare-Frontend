@@ -24,6 +24,7 @@ interface AuthContextType {
     register: (data: any) => Promise<void>;
     logout: () => void;
     updateUser: (updates: Partial<User>) => void;
+    refreshToken: () => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -35,18 +36,23 @@ const AuthContext = createContext<AuthContextType | null>(null);
 const TOKEN_KEY = 'uc_token';
 const USER_KEY = 'uc_user';
 const TOKEN_EXPIRY_KEY = 'uc_token_expiry';
+const REFRESH_TOKEN_KEY = 'uc_refresh_token';
 
-function saveSession(token: string, user: User, expiresInSeconds: number) {
+function saveSession(token: string, user: User, expiresInSeconds: number, refreshToken?: string) {
     const expiryMs = Date.now() + expiresInSeconds * 1000;
     sessionStorage.setItem(TOKEN_KEY, token);
     sessionStorage.setItem(USER_KEY, JSON.stringify(user));
     sessionStorage.setItem(TOKEN_EXPIRY_KEY, String(expiryMs));
+    if (refreshToken) {
+        sessionStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+    }
 }
 
 function clearSession() {
     sessionStorage.removeItem(TOKEN_KEY);
     sessionStorage.removeItem(USER_KEY);
     sessionStorage.removeItem(TOKEN_EXPIRY_KEY);
+    sessionStorage.removeItem(REFRESH_TOKEN_KEY);
     localStorage.removeItem('accessToken');
     localStorage.removeItem('user');
 }
@@ -80,6 +86,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [token, setToken] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const expiryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     // Auto-logout when token expires
     const scheduleAutoLogout = useCallback((expiresInSeconds: number) => {
@@ -93,6 +100,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }, ms);
     }, []);
 
+    // Proactively refresh token before it expires (at 80% of expiry time)
+    const scheduleTokenRefresh = useCallback((expiresInSeconds: number) => {
+        if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+        const refreshAt = expiresInSeconds * 1000 * 0.8; // Refresh at 80% of lifetime
+        refreshTimerRef.current = setTimeout(async () => {
+            const refreshTokenValue = sessionStorage.getItem(REFRESH_TOKEN_KEY);
+            if (refreshTokenValue) {
+                try {
+                    const response = await fetch(`${import.meta.env.VITE_API_URL || '/api'}/auth/refresh`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ refreshToken: refreshTokenValue }),
+                    });
+                    const result = await response.json();
+                    if (result.success && result.data.accessToken) {
+                        const newToken = result.data.accessToken;
+                        const newExpiresIn = result.data.expiresIn ?? 900;
+                        setToken(newToken);
+                        sessionStorage.setItem(TOKEN_KEY, newToken);
+                        const expiryMs = Date.now() + newExpiresIn * 1000;
+                        sessionStorage.setItem(TOKEN_EXPIRY_KEY, String(expiryMs));
+                        scheduleAutoLogout(newExpiresIn);
+                        // Reschedule refresh for the new token
+                        scheduleTokenRefresh(newExpiresIn);
+                    }
+                } catch {
+                    // Refresh failed, let the user continue - they'll be logged out when token expires
+                }
+            }
+        }, refreshAt);
+    }, [scheduleAutoLogout]);
+
     useEffect(() => {
         const session = loadSession();
         if (session) {
@@ -103,15 +142,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const expiryRaw = sessionStorage.getItem(TOKEN_EXPIRY_KEY);
             if (expiryRaw) {
                 const remainingSec = Math.max(0, (Number(expiryRaw) - Date.now()) / 1000);
-                if (remainingSec > 0) scheduleAutoLogout(remainingSec);
+                if (remainingSec > 0) {
+                    scheduleAutoLogout(remainingSec);
+                    scheduleTokenRefresh(remainingSec);
+                }
             }
         }
         setIsLoading(false);
 
         return () => {
             if (expiryTimerRef.current) clearTimeout(expiryTimerRef.current);
+            if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
         };
-    }, [scheduleAutoLogout]);
+    }, [scheduleAutoLogout, scheduleTokenRefresh]);
 
     const login = useCallback(async (email: string, password: string) => {
         // axiosClient interceptor unwraps the envelope — response.data is already AuthResult
@@ -129,10 +172,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const expiresIn = data.expiresIn ?? 3600;
         setToken(data.accessToken);
         setUser(userData);
-        saveSession(data.accessToken, userData, expiresIn);
+        saveSession(data.accessToken, userData, expiresIn, data.refreshToken);
         scheduleAutoLogout(expiresIn);
+        scheduleTokenRefresh(expiresIn);
         return { organizationSetupRequired: data.organizationSetupRequired };
-    }, [scheduleAutoLogout]);
+    }, [scheduleAutoLogout, scheduleTokenRefresh]);
 
     const staffLogin = useCallback(async (username: string, password: string) => {
         // axiosClient interceptor unwraps the envelope — response.data is already AuthResult
@@ -150,10 +194,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const expiresIn = data.expiresIn ?? 3600;
         setToken(data.accessToken);
         setUser(userData);
-        saveSession(data.accessToken, userData, expiresIn);
+        saveSession(data.accessToken, userData, expiresIn, data.refreshToken);
         scheduleAutoLogout(expiresIn);
+        scheduleTokenRefresh(expiresIn);
         return { changePasswordRequired: data.changePasswordRequired };
-    }, [scheduleAutoLogout]);
+    }, [scheduleAutoLogout, scheduleTokenRefresh]);
 
     const register = useCallback(async (data: any) => {
         await authApi.register(data);
@@ -162,6 +207,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const logout = useCallback(() => {
         if (expiryTimerRef.current) clearTimeout(expiryTimerRef.current);
+        if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
         setToken(null);
         setUser(null);
         clearSession();
@@ -176,6 +222,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         });
     }, []);
 
+    const refreshToken = useCallback(async (): Promise<boolean> => {
+        const refreshTokenValue = sessionStorage.getItem(REFRESH_TOKEN_KEY);
+        if (!refreshTokenValue) {
+            return false;
+        }
+        try {
+            const response = await fetch(`${import.meta.env.VITE_API_URL || '/api'}/auth/refresh`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ refreshToken: refreshTokenValue }),
+            });
+            const result = await response.json();
+            if (result.success && result.data.accessToken) {
+                const newToken = result.data.accessToken;
+                const newExpiresIn = result.data.expiresIn ?? 900;
+                setToken(newToken);
+                sessionStorage.setItem(TOKEN_KEY, newToken);
+                const expiryMs = Date.now() + newExpiresIn * 1000;
+                sessionStorage.setItem(TOKEN_EXPIRY_KEY, String(expiryMs));
+                scheduleAutoLogout(newExpiresIn);
+                return true;
+            }
+            return false;
+        } catch {
+            return false;
+        }
+    }, [scheduleAutoLogout]);
+
     return (
         <AuthContext.Provider
             value={{
@@ -189,6 +263,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 register,
                 logout,
                 updateUser,
+                refreshToken,
             }}
         >
             {children}
