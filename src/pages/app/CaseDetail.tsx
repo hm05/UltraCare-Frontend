@@ -4,16 +4,149 @@ const MedicalImageViewer = lazy(() => import('../../components/MedicalImageViewe
 import { useParams, useNavigate } from 'react-router-dom';
 import { casesApi, uploadApi, organizationApi } from '../../api';
 import { useAuth } from '../../contexts/AuthContext';
+import './CaseDetail.css';
 import {
     Pencil, Save, X, Trash2, Download, Mail, FileText,
     Upload, ArrowLeft, ClipboardList, Image, File, Eye,
-    ChevronDown, ChevronRight,
+    ChevronDown, ChevronRight, Printer,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const SERVICE_TYPES = ['Sonography', 'Obs. Sonography', 'X-Ray', 'C.T.', 'M.R.I.', 'N.A.'] as const;
 const PAYMENT_MODES = ['Cash', 'UPI', 'Card', 'Cheque', 'NEFT', 'Other'] as const;
 const UPLOAD_TYPES = ['Scan', 'Prescription', 'Lab Result', 'Other'] as const;
+
+// ─── Rich Text Editor Component ──────────────────────────────────────────────
+interface RichTextEditorProps {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+}
+
+function RichTextEditor({ value, onChange, placeholder }: RichTextEditorProps) {
+  const editorRef = useRef<HTMLDivElement>(null);
+
+  const execCommand = (command: string, valueArg: string = '') => {
+    document.execCommand(command, false, valueArg);
+    if (editorRef.current) {
+      onChange(editorRef.current.innerHTML);
+    }
+  };
+
+  const execFormatBlock = (tag: string) => {
+    document.execCommand('formatBlock', false, tag);
+    if (editorRef.current) {
+      onChange(editorRef.current.innerHTML);
+    }
+  };
+
+  const handleInput = () => {
+    if (editorRef.current) {
+      onChange(editorRef.current.innerHTML);
+    }
+  };
+
+  useEffect(() => {
+    if (editorRef.current && value !== undefined) {
+      // Only set if different to avoid cursor jumping
+      const currentContent = editorRef.current.innerHTML;
+      if (currentContent !== value) {
+        editorRef.current.innerHTML = value || '<p><br></p>';
+      }
+    }
+  }, [value]);
+
+  const ToolbarButton = ({ command, icon: Icon, title, active }: { command?: string; icon: any; title: string; active?: boolean }) => (
+    <button
+      type="button"
+      onClick={() => command && execCommand(command)}
+      title={title}
+      style={{
+        padding: '6px 10px',
+        background: active ? 'var(--accent)' : 'transparent',
+        color: active ? '#fff' : 'var(--text-primary)',
+        border: 'none',
+        borderRadius: '4px',
+        cursor: 'pointer',
+        fontSize: '14px',
+        fontWeight: command === 'bold' ? 'bold' : command === 'italic' ? 'italic' : 'normal',
+        textDecoration: command === 'underline' ? 'underline' : command === 'strikeThrough' ? 'line-through' : 'none',
+      }}
+    >
+      <Icon size={16} />
+    </button>
+  );
+
+  const ToolbarTextButton = ({ command, label, title }: { command: string; label: string; title: string }) => (
+    <button
+      type="button"
+      onClick={() => execCommand(command)}
+      title={title}
+      style={{
+        padding: '6px 10px',
+        background: 'transparent',
+        color: 'var(--text-primary)',
+        border: 'none',
+        borderRadius: '4px',
+        cursor: 'pointer',
+        fontSize: '12px',
+        fontWeight: 'bold',
+      }}
+    >
+      {label}
+    </button>
+  );
+
+  return (
+    <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
+      {/* Toolbar */}
+      <div style={{
+        display: 'flex',
+        gap: '4px',
+        padding: '8px',
+        background: 'var(--bg-tertiary)',
+        borderBottom: '1px solid var(--border)',
+        flexWrap: 'wrap',
+      }}>
+        <button type="button" onClick={() => execFormatBlock('h1')} title="Heading 1" style={{ padding: '6px 10px', background: 'transparent', color: 'var(--text-primary)', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}>H1</button>
+        <button type="button" onClick={() => execFormatBlock('h2')} title="Heading 2" style={{ padding: '6px 10px', background: 'transparent', color: 'var(--text-primary)', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}>H2</button>
+        <button type="button" onClick={() => execFormatBlock('h3')} title="Heading 3" style={{ padding: '6px 10px', background: 'transparent', color: 'var(--text-primary)', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}>H3</button>
+        <div style={{ width: '1px', background: 'var(--border)', margin: '0 4px' }} />
+        <ToolbarButton command="bold" icon={({size}: {size: number}) => <b style={{fontSize: size}}>B</b>} title="Bold" />
+        <ToolbarButton command="italic" icon={({size}: {size: number}) => <i style={{fontSize: size}}>I</i>} title="Italic" />
+        <ToolbarButton command="underline" icon={({size}: {size: number}) => <u style={{fontSize: size}}>U</u>} title="Underline" />
+        <ToolbarButton command="strikeThrough" icon={({size}: {size: number}) => <s style={{fontSize: size}}>S</s>} title="Strikethrough" />
+        <div style={{ width: '1px', background: 'var(--border)', margin: '0 4px' }} />
+        <ToolbarTextButton command="subscript" label="x₂" title="Subscript" />
+        <ToolbarTextButton command="superscript" label="x²" title="Superscript" />
+        <div style={{ width: '1px', background: 'var(--border)', margin: '0 4px' }} />
+        <ToolbarButton command="insertUnorderedList" icon={({size}: {size: number}) => <span style={{fontSize: size}}>•</span>} title="Bullet List" />
+        <ToolbarButton command="insertOrderedList" icon={({size}: {size: number}) => <span style={{fontSize: size}}>1.</span>} title="Numbered List" />
+      </div>
+
+      {/* Editor */}
+      <div
+        ref={editorRef}
+        contentEditable
+        onInput={handleInput}
+        onBlur={handleInput}
+        style={{
+          minHeight: '200px',
+          padding: '12px',
+          background: 'var(--bg-secondary)',
+          color: 'var(--text-primary)',
+          fontSize: '14px',
+          lineHeight: '1.6',
+          outline: 'none',
+          whiteSpace: 'pre-wrap',
+          wordWrap: 'break-word',
+        }}
+        data-placeholder={placeholder}
+        suppressContentEditableWarning
+      />
+    </div>
+  );
+}
 
 // ─── Preview Modal ─────────────────────────────────────────────────────────────
 type PreviewContent =
@@ -59,6 +192,17 @@ function PreviewModal({ content, onClose }: { content: PreviewContent; onClose: 
                         <span style={{ fontWeight: 600, fontSize: 'var(--font-size-md)' }}>{content.title}</span>
                     </div>
                     <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+                        {/* Print button for Form F */}
+                        {content.kind === 'html' && content.title === 'Form F' && (
+                            <button className="btn btn-sm btn-primary" onClick={() => {
+                                const iframe = document.querySelector('iframe');
+                                if (iframe && iframe.contentWindow) {
+                                    iframe.contentWindow.print();
+                                }
+                            }}>
+                                <Printer size={14} /> Print
+                            </button>
+                        )}
                         {!isImage && (
                             <button className="btn btn-sm btn-outline" onClick={() => {
                                 if (content.kind === 'html') {
@@ -207,6 +351,8 @@ export default function CaseDetail() {
     const [emailTarget, setEmailTarget] = useState<'self' | 'other' | null>(null);
     const [customEmail, setCustomEmail] = useState('');
     const [sendingEmail, setSendingEmail] = useState(false);
+    const [selectedReportIdsForEmail, setSelectedReportIdsForEmail] = useState<string[]>([]);
+    const [includeSignedUrls, setIncludeSignedUrls] = useState(true);
 
     // Preview modal
     const [preview, setPreview] = useState<PreviewContent | null>(null);
@@ -243,6 +389,24 @@ export default function CaseDetail() {
     };
 
     useEffect(() => { loadCase(); loadTemplates(); }, [caseId]);
+
+    // Auto-select template based on case service type when templates load
+    useEffect(() => {
+        if (!caseData?.service_type || templates.length === 0 || selectedTemplate) return;
+        
+        const serviceType = caseData.service_type.toLowerCase();
+        // Find matching template (exact or partial match)
+        const matchingTemplate = templates.find((t: any) => {
+            const templateType = (t.report_type || '').toLowerCase();
+            return templateType === serviceType || 
+                   templateType.includes(serviceType) || 
+                   serviceType.includes(templateType);
+        });
+        
+        if (matchingTemplate) {
+            applyTemplate(matchingTemplate.report_type);
+        }
+    }, [caseData, templates]);
 
     // ─── Chronology data ───────────────────────────────────────────────────────
     const chronoItems = useMemo<ChronoItem[]>(() => {
@@ -538,12 +702,17 @@ export default function CaseDetail() {
         if (!target) { toast.error('Please enter an email address'); return; }
         const reportId = reports.length > 0 ? reports[0].id : null;
         if (!reportId) { toast.error('No text report found — create one from a template first'); return; }
+        
+        // Use selected reports or all reports if none selected
+        const reportsToSend = selectedReportIdsForEmail.length > 0 ? selectedReportIdsForEmail : reports.map(r => r.id);
+        
         setSendingEmail(true);
         try {
-            await casesApi.emailReport(caseId!, reportId, target);
+            await casesApi.emailReport(caseId!, reportId, target, reportsToSend, includeSignedUrls);
             toast.success(`Email sent to ${target}`);
             setEmailTarget(null);
             setCustomEmail('');
+            setSelectedReportIdsForEmail([]);
         } catch (err: any) {
             const msg = err.response?.data?.error || err.response?.data?.details || 'Email failed';
             toast.error(msg);
@@ -594,7 +763,7 @@ export default function CaseDetail() {
                         {emailTarget && (
                             <div className="card shadow-md" style={{
                                 position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 20,
-                                minWidth: 220, padding: 'var(--space-3)', display: 'flex',
+                                minWidth: 280, padding: 'var(--space-3)', display: 'flex',
                                 flexDirection: 'column', gap: 'var(--space-2)',
                             }}>
                                 <select className="form-input" value={emailTarget} onChange={e => setEmailTarget(e.target.value as any)}>
@@ -604,7 +773,43 @@ export default function CaseDetail() {
                                 {emailTarget === 'other' && (
                                     <input className="form-input" type="email" placeholder="Email address" value={customEmail} onChange={e => setCustomEmail(e.target.value)} />
                                 )}
-                                <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+                                
+                                {/* Report Selection */}
+                                {reports.length > 0 && (
+                                    <>
+                                        <label className="text-xs text-secondary" style={{ marginTop: 'var(--space-2)' }}>Select reports to include:</label>
+                                        <div style={{ maxHeight: '120px', overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: 'var(--space-2)' }}>
+                                            {reports.map((report: any) => (
+                                                <label key={report.id} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', padding: '4px 0', cursor: 'pointer' }}>
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={selectedReportIdsForEmail.includes(report.id)}
+                                                        onChange={(e) => {
+                                                            if (e.target.checked) {
+                                                                setSelectedReportIdsForEmail(prev => [...prev, report.id]);
+                                                            } else {
+                                                                setSelectedReportIdsForEmail(prev => prev.filter(id => id !== report.id));
+                                                            }
+                                                        }}
+                                                    />
+                                                    <span className="text-sm">{report.report_type || report.description || 'Report'} ({new Date(report.created_at).toLocaleTimeString()})</span>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    </>
+                                )}
+                                
+                                {/* Signed URLs Option */}
+                                <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginTop: 'var(--space-2)', cursor: 'pointer' }}>
+                                    <input
+                                        type="checkbox"
+                                        checked={includeSignedUrls}
+                                        onChange={(e) => setIncludeSignedUrls(e.target.checked)}
+                                    />
+                                    <span className="text-sm">Include image hyperlinks</span>
+                                </label>
+                                
+                                <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-2)' }}>
                                     <button className="btn btn-sm btn-primary" style={{ flex: 1 }} onClick={handleEmailSend} disabled={sendingEmail}>
                                         {sendingEmail ? 'Sending…' : 'Send'}
                                     </button>
@@ -871,13 +1076,7 @@ export default function CaseDetail() {
                             </div>
                             {selectedTemplate && (
                                 <>
-                                    <textarea
-                                        className="form-input"
-                                        style={{ minHeight: 220, fontFamily: 'monospace', fontSize: 'var(--font-size-sm)', lineHeight: 1.65 }}
-                                        value={reportContent}
-                                        onChange={e => setReportContent(e.target.value)}
-                                        placeholder="Report content…"
-                                    />
+                                    <RichTextEditor value={reportContent} onChange={setReportContent} placeholder="Report content…" />
                                     <div style={{ display: 'flex', gap: 'var(--space-2)', justifyContent: 'flex-end' }}>
                                         <button className="btn btn-sm btn-secondary" onClick={() => { setSelectedTemplate(''); setReportContent(''); }}>
                                             <X size={14} /> Clear

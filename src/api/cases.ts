@@ -21,8 +21,8 @@ export const casesApi = {
         axiosClient.get(`/cases/${caseId}/reports/${reportId}/export/html`, { responseType: 'text' }),
     exportReportMd: (caseId: string, reportId: string) =>
         axiosClient.get(`/cases/${caseId}/reports/${reportId}/export/md`, { responseType: 'text' }),
-    emailReport: (caseId: string, reportId: string, email: string) =>
-        axiosClient.post(`/cases/${caseId}/reports/${reportId}/email`, { email }),
+    emailReport: (caseId: string, reportId: string, email: string, selectedReportIds?: string[], includeSignedUrls?: boolean) =>
+        axiosClient.post(`/cases/${caseId}/reports/${reportId}/email`, { email, selectedReportIds, includeSignedUrls }),
     printReport: (caseId: string, reportId: string) =>
         axiosClient.get(`/cases/${caseId}/reports/${reportId}/print`, { responseType: 'text' }),
     exportFormF: (caseId: string) =>
