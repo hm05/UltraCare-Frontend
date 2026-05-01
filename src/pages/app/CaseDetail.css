@@ -1,0 +1,91 @@
+/* Rich Text Editor and Preview Modal Styles */
+
+/* Preview Modal Dark Mode Support */
+.preview-modal-iframe {
+  background: #ffffff;
+  border: none;
+  width: 100%;
+  height: 100%;
+  min-height: 600px;
+}
+
+/* Rich Text Editor Styles */
+.quill-editor-wrapper {
+  overflow: hidden;
+}
+
+/* Content editable styles */
+div[contenteditable] {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+div[contenteditable]:empty:before {
+  content: attr(data-placeholder);
+  color: var(--text-tertiary, #666);
+  font-style: italic;
+  pointer-events: none;
+}
+
+/* Editor formatting */
+.report-content-preview {
+  line-height: 1.7;
+}
+
+.report-content-preview p {
+  margin: 8px 0;
+}
+
+.report-content-preview ul,
+.report-content-preview ol {
+  margin: 8px 0;
+  padding-left: 24px;
+}
+
+.report-content-preview li {
+  margin: 4px 0;
+}
+
+.report-content-preview strong {
+  font-weight: 700;
+}
+
+.report-content-preview em {
+  font-style: italic;
+}
+
+.report-content-preview u {
+  text-decoration: underline;
+}
+
+.report-content-preview s {
+  text-decoration: line-through;
+}
+
+.report-content-preview sub {
+  font-size: 0.75em;
+  vertical-align: sub;
+}
+
+.report-content-preview sup {
+  font-size: 0.75em;
+  vertical-align: super;
+}
+
+.report-content-preview h1 {
+  font-size: 1.8em;
+  margin: 16px 0 12px;
+  font-weight: 700;
+}
+
+.report-content-preview h2 {
+  font-size: 1.5em;
+  margin: 14px 0 10px;
+  font-weight: 700;
+}
+
+.report-content-preview h3 {
+  font-size: 1.3em;
+  margin: 12px 0 8px;
+  font-weight: 700;
+}
