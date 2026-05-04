@@ -1,0 +1,30 @@
+#!/bin/sh
+. "$(dirname "$0")/_/husky.sh"
+
+# Check for potential secrets in staged files
+echo "Checking for secrets in staged files..."
+
+# Patterns to detect secrets
+PATTERNS="gsk_[a-zA-Z0-9]+|api[_-]?key|secret[_-]?key|JWT_SECRET|postgres://.*@.*neon|upstash|AWS_ACCESS_KEY"
+
+# Get staged files and check for secrets
+FILES=$(git diff --cached --name-only --diff-filter=ACM)
+FOUND=0
+
+for file in $FILES; do
+  if [ -f "$file" ]; then
+    if grep -iE "$PATTERNS" "$file" > /dev/null 2>&1; then
+      echo "❌ Potential secret found in $file"
+      FOUND=1
+    fi
+  fi
+done
+
+if [ $FOUND -eq 1 ]; then
+  echo ""
+  echo "Please remove secrets before committing."
+  echo "If this is a false positive, you can bypass with: git commit --no-verify"
+  exit 1
+fi
+
+echo "✅ No secrets detected"
