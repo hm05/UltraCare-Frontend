@@ -107,7 +107,7 @@
 
   --text-primary: #F5F5F7;
   --text-secondary: #A1A1A6;
-  --text-tertiary: #86868B;
+  --text-tertiary: #D1D1D6;
   --text-inverse: #1D1D1F;
 
   --accent: #0A84FF;
@@ -118,7 +118,7 @@
   --warning: #FFD60A;
   --danger: #FF453A;
 
-  --border: rgba(255, 255, 255, 0.1);
+  --border: rgba(255, 255, 255, 0.15);
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
   --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.5);

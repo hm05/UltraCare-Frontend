@@ -139,7 +139,18 @@ export default function DoctorDashboard() {
                                             <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
                                         ))}
                                     </Pie>
-                                    <Tooltip formatter={(v: unknown) => `₹${(Number(v) || 0).toLocaleString()}`} />
+                                    <Tooltip
+  formatter={(v: unknown) => `₹${(Number(v) || 0).toLocaleString()}`}
+  contentStyle={{
+    backgroundColor: 'var(--bg-card)',
+    color: 'var(--text-primary)',
+    border: '1px solid var(--border)',
+    borderRadius: '8px',
+    padding: '8px 12px',
+  }}
+  itemStyle={{ color: 'var(--text-primary)' }}
+  cursor={{ fill: 'var(--accent-light)' }}
+/>
                                 </PieChart>
                             </ResponsiveContainer>
                             <div className="chart-legend">
@@ -167,7 +178,17 @@ export default function DoctorDashboard() {
                             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                             <XAxis dataKey="day" tick={{ fontSize: 11, fill: 'var(--text-tertiary)' }} />
                             <YAxis tick={{ fontSize: 11, fill: 'var(--text-tertiary)' }} allowDecimals={false} domain={[0, 'auto']} />
-                            <Tooltip />
+                            <Tooltip
+  contentStyle={{
+    backgroundColor: 'var(--bg-card)',
+    color: 'var(--text-primary)',
+    border: '1px solid var(--border)',
+    borderRadius: '8px',
+    padding: '8px 12px',
+  }}
+  itemStyle={{ color: 'var(--text-primary)' }}
+  cursor={{ fill: 'var(--accent-light)' }}
+/>
                             <Line type="monotone" dataKey="count" stroke="var(--accent)" strokeWidth={2.5} dot={{ r: 4, fill: 'var(--accent)' }} activeDot={{ r: 6 }} />
                         </LineChart>
                     </ResponsiveContainer>
