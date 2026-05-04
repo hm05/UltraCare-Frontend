@@ -11,6 +11,17 @@ import {
     ChevronDown, ChevronRight, Printer,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import DOMPurify from 'dompurify';
+
+const ALLOWED_TAGS = ['b', 'i', 'u', 'ul', 'ol', 'li', 'p', 'br', 'h1', 'h2', 'h3'];
+const ALLOWED_ATTR: string[] = [];
+
+const sanitizeHTML = (html: string): string => {
+  return DOMPurify.sanitize(html, {
+    ALLOWED_TAGS,
+    ALLOWED_ATTR,
+  });
+};
 
 const SERVICE_TYPES = ['Sonography', 'Obs. Sonography', 'X-Ray', 'C.T.', 'M.R.I.', 'N.A.'] as const;
 const PAYMENT_MODES = ['Cash', 'UPI', 'Card', 'Cheque', 'NEFT', 'Other'] as const;
@@ -50,8 +61,9 @@ function RichTextEditor({ value, onChange, placeholder }: RichTextEditorProps) {
     if (editorRef.current && value !== undefined) {
       // Only set if different to avoid cursor jumping
       const currentContent = editorRef.current.innerHTML;
-      if (currentContent !== value) {
-        editorRef.current.innerHTML = value || '<p><br></p>';
+      const sanitizedValue = sanitizeHTML(value);
+      if (currentContent !== sanitizedValue) {
+        editorRef.current.innerHTML = sanitizedValue || '<p><br></p>';
       }
     }
   }, [value]);

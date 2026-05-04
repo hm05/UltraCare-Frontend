@@ -147,7 +147,18 @@ export default function ReferralData() {
                             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                             <XAxis dataKey="name" tick={{ fontSize: 11, fill: 'var(--text-tertiary)' }} />
                             <YAxis tick={{ fontSize: 11, fill: 'var(--text-tertiary)' }} />
-                            <Tooltip formatter={(v: unknown) => `₹${(Number(v) || 0).toLocaleString()}`} />
+                            <Tooltip
+  formatter={(v: unknown) => `₹${(Number(v) || 0).toLocaleString()}`}
+  contentStyle={{
+    backgroundColor: 'var(--bg-card)',
+    color: 'var(--text-primary)',
+    border: '1px solid var(--border)',
+    borderRadius: '8px',
+    padding: '8px 12px',
+  }}
+  itemStyle={{ color: 'var(--text-primary)' }}
+  cursor={{ fill: 'var(--accent-light)' }}
+/>
                             <Bar dataKey="amount" fill="var(--accent)" radius={[6, 6, 0, 0]} maxBarSize={80} />
                         </BarChart>
                     </ResponsiveContainer>
