@@ -8,7 +8,7 @@ import './CaseDetail.css';
 import {
     Pencil, Save, X, Trash2, Download, Mail, FileText,
     Upload, ArrowLeft, ClipboardList, Image, File, Eye,
-    ChevronDown, ChevronRight, Printer,
+    ChevronDown, ChevronRight, Printer, Plus,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import DOMPurify from 'dompurify';
@@ -309,6 +309,8 @@ interface ChronoItem {
     fileUrl?: string;
     fileType?: string;
     content?: string;
+    // for visits
+    visitData?: any;
 }
 
 function groupByDate(items: ChronoItem[]): { label: string; dateKey: string; items: ChronoItem[] }[] {
@@ -374,6 +376,38 @@ export default function CaseDetail() {
     const [uploadOpen, setUploadOpen] = useState(false);
     const [reportingOpen, setReportingOpen] = useState(false);
 
+    // Revisit modal
+    const [revisitModalOpen, setRevisitModalOpen] = useState(false);
+    const [visitDetailOpen, setVisitDetailOpen] = useState(false);
+    const [selectedVisit, setSelectedVisit] = useState<any>(null);
+    const [staffList, setStaffList] = useState<{id: string; name: string}[]>([]);
+    const [revisitForm, setRevisitForm] = useState({
+        visitDate: new Date().toISOString().split('T')[0],
+        reason: '',
+        attendingStaffId: '',
+        clinicalNotes: '',
+        amount: '',
+        paymentMode: '',
+    });
+
+    // Load staff list on component mount
+    useEffect(() => {
+        organizationApi.getHRStaffList().then((res: any) => {
+            const list = (res.data.staff || []).map((s: any) => ({
+                id: s.id,
+                name: `${s.first_name} ${s.last_name}`.trim() || s.name || ''
+            }));
+            setStaffList(list);
+        }).catch(() => {});
+    }, []);
+
+    // Calculate total amount (case + visits)
+    const totalAmount = useMemo(() => {
+        const caseAmount = Number(caseData?.amount) || 0;
+        const visitsAmount = visits.reduce((sum, v) => sum + (Number(v.amount) || 0), 0);
+        return caseAmount + visitsAmount;
+    }, [caseData, visits]);
+
     const loadCase = async () => {
         if (!caseId) return;
         if (loadedCaseIdRef.current === caseId) return;
@@ -401,6 +435,62 @@ export default function CaseDetail() {
     };
 
     useEffect(() => { loadCase(); loadTemplates(); }, [caseId]);
+
+    // Auto-save revisit form to localStorage every 5 seconds
+    useEffect(() => {
+        if (!revisitModalOpen) return;
+        const timer = setTimeout(() => {
+            localStorage.setItem(`revisit-autosave-${caseId}`, JSON.stringify(revisitForm));
+        }, 5000);
+        return () => clearTimeout(timer);
+    }, [revisitForm, revisitModalOpen, caseId]);
+
+    // Load autosaved revisit form on modal open
+    useEffect(() => {
+        if (revisitModalOpen && caseId) {
+            const saved = localStorage.getItem(`revisit-autosave-${caseId}`);
+            if (saved) {
+                try {
+                    setRevisitForm(JSON.parse(saved));
+                } catch { /* ignore */ }
+            }
+        }
+    }, [revisitModalOpen, caseId]);
+
+    // Handle revisit form submission
+    const handleLogRevisit = async () => {
+        if (!caseId) return;
+        try {
+            await casesApi.logVisit(caseId, {
+                visitDate: revisitForm.visitDate,
+                reason: revisitForm.reason || undefined,
+                attendingStaffId: revisitForm.attendingStaffId || undefined,
+                clinicalNotes: revisitForm.clinicalNotes || undefined,
+                amount: revisitForm.amount ? Number(revisitForm.amount) : undefined,
+                paymentMode: revisitForm.paymentMode || undefined,
+            });
+            toast.success('Revisit logged successfully');
+            setRevisitModalOpen(false);
+            setRevisitForm({
+                visitDate: new Date().toISOString().split('T')[0],
+                reason: '',
+                attendingStaffId: '',
+                clinicalNotes: '',
+                amount: '',
+                paymentMode: '',
+            });
+            localStorage.removeItem(`revisit-autosave-${caseId}`);
+            loadCase();
+        } catch (err: any) {
+            toast.error(err.response?.data?.error || 'Failed to log revisit');
+        }
+    };
+
+    // Handle create new case from existing patient
+    const handleCreateNewCase = () => {
+        if (!caseData?.patient_id) return;
+        navigate('/create-case', { state: { patientId: caseData.patient_id } });
+    };
 
     // Auto-select template based on case service type when templates load
     useEffect(() => {
@@ -439,12 +529,17 @@ export default function CaseDetail() {
 
         // Visits
         for (const v of visits) {
+            const staffStr = v.attending_staff_name ? `${v.attending_staff_name}` : '';
+            const amountStr = v.amount ? `₹${Number(v.amount).toLocaleString()}` : '';
+            const subtitleParts = [staffStr, amountStr].filter(Boolean);
+
             items.push({
                 id: `visit-${v.id}`,
                 kind: 'visit',
+                visitData: v,
                 date: new Date(v.visit_date || v.created_at),
-                title: 'Visit Logged',
-                subtitle: v.notes || '',
+                title: v.reason || 'Visit Logged',
+                subtitle: subtitleParts.join(' • '),
                 icon: Eye,
                 accentColor: 'var(--text-tertiary)',
             });
@@ -843,9 +938,16 @@ export default function CaseDetail() {
                             {new Date(caseData.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })}
                         </span>
                     </div>
-                    {!editing && isDoctor && (
-                        <button className="btn btn-sm btn-outline" onClick={startEditing}><Pencil size={14} /> Edit</button>
-                    )}
+                    <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+                        {!editing && isDoctor && (
+                            <button className="btn btn-sm btn-outline" onClick={handleCreateNewCase}>
+                                <Plus size={14} /> New Case
+                            </button>
+                        )}
+                        {!editing && isDoctor && (
+                            <button className="btn btn-sm btn-outline" onClick={startEditing}><Pencil size={14} /> Edit</button>
+                        )}
+                    </div>
                 </div>
 
                 {editing ? (
@@ -891,23 +993,18 @@ export default function CaseDetail() {
                             { label: 'Phone', value: patient?.phone || '—' },
                             { label: 'Guardian', value: patient?.guardian_name || '—' },
                             { label: 'Service', value: <span className="badge badge-primary">{caseData.service_type}</span> },
-                            { label: 'Amount', value: `₹${Number(caseData.amount ?? 0).toLocaleString()}` },
+                            { label: 'Address', value: [patient?.address_line_1, patient?.area, patient?.city, patient?.pincode].filter(Boolean).join(', ') || '—' },
+                            { label: 'Amount', value: `₹${Number(totalAmount ?? 0).toLocaleString()}` },
                             { label: 'Payment', value: <span className={`badge ${caseData.payment_mode === 'Cash' ? 'badge-success' : 'badge-warning'}`}>{caseData.payment_mode}</span> },
                             { label: 'Referred By', value: caseData.referred_by || '—' },
                             { label: 'Attending Staff', value: caseData.attending_staff_name || '—' },
-                            { label: 'Created By', value: caseData.created_by_username || '—' },
+                            // { label: 'Created By', value: caseData.created_by_username || '—' },
                         ].map(({ label, value }) => (
                             <div key={label}>
                                 <p className="text-xs text-tertiary" style={{ marginBottom: 2 }}>{label}</p>
                                 <p style={{ fontWeight: 500 }}>{value}</p>
                             </div>
                         ))}
-                        {(patient?.address_line_1 || patient?.city) && (
-                            <div style={{ gridColumn: '1 / -1' }}>
-                                <p className="text-xs text-tertiary" style={{ marginBottom: 2 }}>Address</p>
-                                <p className="text-sm">{[patient?.address_line_1, patient?.area, patient?.city, patient?.pincode].filter(Boolean).join(', ')}</p>
-                            </div>
-                        )}
                     </div>
                 )}
             </div>
@@ -916,7 +1013,27 @@ export default function CaseDetail() {
             <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <h3 style={{ fontSize: 'var(--font-size-md)', fontWeight: 600, margin: 0 }}>Medical Chronology</h3>
-                    <span className="text-xs text-tertiary">{chronoItems.length} {chronoItems.length === 1 ? 'entry' : 'entries'}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+                        <span className="text-xs text-tertiary">{chronoItems.length} {chronoItems.length === 1 ? 'entry' : 'entries'}</span>
+                        <button
+                            type="button"
+                            onClick={() => setRevisitModalOpen(true)}
+                            style={{
+                                display: 'flex', alignItems: 'center', gap: 'var(--space-2)',
+                                padding: '6px 12px',
+                                background: 'var(--accent)',
+                                color: '#fff',
+                                border: 'none',
+                                borderRadius: 'var(--radius-sm)',
+                                fontSize: '13px',
+                                fontWeight: 500,
+                                cursor: 'pointer',
+                            }}
+                        >
+                            <Plus size={14} />
+                            Log Revisit
+                        </button>
+                    </div>
                 </div>
 
                 {loadingPreview && (
@@ -944,7 +1061,19 @@ export default function CaseDetail() {
                             {items.map((item, idx) => {
                                 const Icon = item.icon;
                                 const isClickable = item.kind !== 'case' && item.kind !== 'visit';
+                                const isVisit = item.kind === 'visit';
                                 const canDelete = item.kind === 'report' || item.kind === 'document';
+                                const canView = isClickable || isVisit;
+
+                                const handleItemClick = () => {
+                                    if (isClickable) {
+                                        openPreview(item);
+                                    } else if (isVisit && item.visitData) {
+                                        setSelectedVisit(item.visitData);
+                                        setVisitDetailOpen(true);
+                                    }
+                                };
+
                                 return (
                                     <div
                                         key={item.id}
@@ -952,11 +1081,11 @@ export default function CaseDetail() {
                                             display: 'flex', alignItems: 'center', gap: 'var(--space-4)',
                                             padding: 'var(--space-3) var(--space-4)',
                                             borderBottom: idx < items.length - 1 ? '1px solid var(--border)' : 'none',
-                                            cursor: isClickable ? 'pointer' : 'default',
+                                            cursor: canView ? 'pointer' : 'default',
                                             transition: 'background var(--transition-fast)',
                                         }}
-                                        onClick={() => isClickable && openPreview(item)}
-                                        onMouseEnter={e => { if (isClickable) (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)'; }}
+                                        onClick={handleItemClick}
+                                        onMouseEnter={e => { if (canView) (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)'; }}
                                         onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = ''; }}
                                     >
                                         {/* Color dot */}
@@ -980,11 +1109,13 @@ export default function CaseDetail() {
 
                                         {/* Right: time + actions */}
                                         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', flexShrink: 0 }}>
-                                            <span className="text-xs text-tertiary">
-                                                {item.date.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
-                                            </span>
                                             {isClickable && (
-                                                <span className="text-xs" style={{ color: 'var(--accent)', fontWeight: 500 }}>Preview →</span>
+                                                <span className="text-xs text-tertiary">
+                                                    {item.date.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                                                </span>
+                                            )}
+                                            {canView && (
+                                                <span className="text-xs" style={{ color: 'var(--accent)', fontWeight: 500 }}>{isVisit ? 'View →' : 'Preview →'}</span>
                                             )}
                                             {canDelete && isDoctor && (
                                                 <button
@@ -1115,6 +1246,256 @@ export default function CaseDetail() {
 
             {/* ── Preview Modal ── */}
             {preview && <PreviewModal content={preview} onClose={() => setPreview(null)} />}
+
+            {/* ── Revisit Modal ── */}
+            {revisitModalOpen && (
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                    background: 'rgba(0,0,0,0.5)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    zIndex: 1000,
+                }} onClick={(e) => { if (e.target === e.currentTarget) setRevisitModalOpen(false); }}>
+                    <div style={{
+                        background: 'var(--bg-card)',
+                        borderRadius: 'var(--radius-lg)',
+                        width: '90%',
+                        maxWidth: '500px',
+                        maxHeight: '90vh',
+                        overflowY: 'auto',
+                        padding: 'var(--space-6)',
+                        boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+                    }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-4)' }}>
+                            <h3 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, margin: 0 }}>Log Patient Revisit</h3>
+                            <button
+                                type="button"
+                                onClick={() => setRevisitModalOpen(false)}
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-tertiary)' }}
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+                            <div className="form-group">
+                                <label className="form-label">Visit Date</label>
+                                <input
+                                    type="date"
+                                    className="form-input"
+                                    value={revisitForm.visitDate}
+                                    onChange={(e) => setRevisitForm({ ...revisitForm, visitDate: e.target.value })}
+                                />
+                            </div>
+
+                            <div className="form-group">
+                                <label className="form-label">Reason for Revisit</label>
+                                <input
+                                    type="text"
+                                    className="form-input"
+                                    placeholder="e.g. Follow-up, Check results, Treatment review"
+                                    value={revisitForm.reason}
+                                    onChange={(e) => setRevisitForm({ ...revisitForm, reason: e.target.value })}
+                                />
+                            </div>
+
+                            <div className="form-group">
+                                <label className="form-label">Attending Staff</label>
+                                <select
+                                    className="form-input"
+                                    value={revisitForm.attendingStaffId}
+                                    onChange={(e) => setRevisitForm({ ...revisitForm, attendingStaffId: e.target.value })}
+                                >
+                                    <option value="">— Select staff —</option>
+                                    {staffList.map((staff) => (
+                                        <option key={staff.id} value={staff.id}>{staff.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className="form-group">
+                                <label className="form-label">Clinical Notes</label>
+                                <RichTextEditor
+                                    value={revisitForm.clinicalNotes}
+                                    onChange={(value) => setRevisitForm({ ...revisitForm, clinicalNotes: value })}
+                                    placeholder="Enter clinical notes..."
+                                />
+                            </div>
+
+                            <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
+                                <div className="form-group" style={{ flex: 1 }}>
+                                    <label className="form-label">Amount (₹)</label>
+                                    <input
+                                        type="number"
+                                        className="form-input"
+                                        placeholder="0"
+                                        value={revisitForm.amount}
+                                        onChange={(e) => setRevisitForm({ ...revisitForm, amount: e.target.value })}
+                                    />
+                                </div>
+                                <div className="form-group" style={{ flex: 1 }}>
+                                    <label className="form-label">Payment Mode</label>
+                                    <select
+                                        className="form-input"
+                                        value={revisitForm.paymentMode}
+                                        onChange={(e) => setRevisitForm({ ...revisitForm, paymentMode: e.target.value })}
+                                    >
+                                        <option value="">— Select —</option>
+                                        {PAYMENT_MODES.map((mode) => (
+                                            <option key={mode} value={mode}>{mode}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div style={{ display: 'flex', gap: 'var(--space-3)', justifyContent: 'flex-end', marginTop: 'var(--space-2)' }}>
+                                <button
+                                    type="button"
+                                    className="btn btn-secondary"
+                                    onClick={() => setRevisitModalOpen(false)}
+                                >
+                                    <X size={14} /> Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    className="btn btn-primary"
+                                    onClick={handleLogRevisit}
+                                >
+                                    <Save size={14} /> Log Revisit
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Visit Detail Modal ── */}
+            {visitDetailOpen && selectedVisit && (
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                    background: 'rgba(0,0,0,0.5)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    zIndex: 1000,
+                }} onClick={(e) => { if (e.target === e.currentTarget) setVisitDetailOpen(false); }}>
+                    <div style={{
+                        background: 'var(--bg-card)',
+                        borderRadius: 'var(--radius-lg)',
+                        boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+                        width: '100%',
+                        maxWidth: 480,
+                        maxHeight: '90vh',
+                        overflow: 'auto',
+                        padding: 'var(--space-5)',
+                        position: 'relative',
+                    }}>
+                        {/* Apple-style close button */}
+                        <button
+                            type="button"
+                            onClick={() => setVisitDetailOpen(false)}
+                            style={{
+                                position: 'absolute',
+                                top: 16,
+                                right: 16,
+                                width: 24,
+                                height: 24,
+                                borderRadius: '50%',
+                                background: '#FF5F57',
+                                border: 'none',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                padding: 0,
+                            }}
+                        >
+                            <X size={14} style={{ color: '#fff' }} />
+                        </button>
+
+                        {/* Header */}
+                        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 'var(--space-4)' }}>
+                            <h3 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, margin: 0 }}>Revisit Details</h3>
+                        </div>
+
+                        {/* Visit Info */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+                            {/* Reason with dashed label style */}
+                            <div>
+                                <p className="text-xs text-tertiary" style={{ marginBottom: 8, letterSpacing: '0.05em' }}>Reason</p>
+                                <div style={{
+                                    border: '1px solid var(--border)',
+                                    padding: 'var(--space-3)',
+                                    borderRadius: 'var(--radius-md)',
+                                }}>
+                                    <p style={{ fontWeight: 500, fontSize: 'var(--font-size-md)' }}>{selectedVisit.reason || '—'}</p>
+                                </div>
+                            </div>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)' }}>
+                                <div>
+                                    <p className="text-xs text-tertiary" style={{ marginBottom: 8, letterSpacing: '0.05em' }}>Visit Date</p>
+                                    <div style={{
+                                        border: '1px solid var(--border)',
+                                        padding: 'var(--space-3)',
+                                        borderRadius: 'var(--radius-md)',
+                                    }}>
+                                        <p style={{ fontWeight: 500, fontSize: 'var(--font-size-md)' }}>{selectedVisit.visit_date ? new Date(selectedVisit.visit_date).toLocaleDateString('en-IN') : '—'}</p>
+                                    </div>
+                                </div>
+                                <div>
+                                    <p className="text-xs text-tertiary" style={{ marginBottom: 8, letterSpacing: '0.05em' }}>Amount</p>
+                                    <div style={{
+                                        border: '1px solid var(--border)',
+                                        padding: 'var(--space-3)',
+                                        borderRadius: 'var(--radius-md)',
+                                    }}>
+                                        <p style={{ fontWeight: 500, fontSize: 'var(--font-size-md)' }}>{selectedVisit.amount ? `₹${Number(selectedVisit.amount).toLocaleString()}` : '—'}</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)' }}>
+                                <div>
+                                    <p className="text-xs text-tertiary" style={{ marginBottom: 8, letterSpacing: '0.05em' }}>Attending Staff</p>
+                                    <div style={{
+                                        border: '1px solid var(--border)',
+                                        padding: 'var(--space-3)',
+                                        borderRadius: 'var(--radius-md)',
+                                    }}>
+                                        <p style={{ fontWeight: 500, fontSize: 'var(--font-size-md)' }}>{selectedVisit.attending_staff_name || '—'}</p>
+                                    </div>
+                                </div>
+                                <div>
+                                    <p className="text-xs text-tertiary" style={{ marginBottom: 8, letterSpacing: '0.05em' }}>Payment Mode</p>
+                                    <div style={{
+                                        border: '1px solid var(--border)',
+                                        padding: 'var(--space-3)',
+                                        borderRadius: 'var(--radius-md)',
+                                    }}>
+                                        <p style={{ fontWeight: 500, fontSize: 'var(--font-size-md)' }}>{selectedVisit.payment_mode || '—'}</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Revisit Description */}
+                            <div>
+                                <p className="text-xs text-tertiary" style={{ marginBottom: 8, letterSpacing: '0.05em' }}>Description</p>
+                                <div
+                                    style={{
+                                        border: '1px solid var(--border)',
+                                        padding: 'var(--space-3)',
+                                        borderRadius: 'var(--radius-md)',
+                                        maxHeight: 200,
+                                        overflow: 'auto',
+                                        lineHeight: 1.5,
+                                        minHeight: 60,
+                                        fontSize: 'var(--font-size-md)',
+                                    }}
+                                    dangerouslySetInnerHTML={{ __html: selectedVisit.clinical_notes || '—' }}
+                                />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

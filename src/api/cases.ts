@@ -2,7 +2,7 @@ import axiosClient from './axiosClient';
 
 export const casesApi = {
     create: (data: any) => axiosClient.post('/cases', data),
-    list: (params?: { q?: string; page?: number; limit?: number }) =>
+    list: (params?: { q?: string; page?: number; limit?: number; patientId?: string }) =>
         axiosClient.get('/cases', { params }),
     getDetail: (caseId: string) => axiosClient.get(`/cases/${caseId}`),
     edit: (caseId: string, data: any) => axiosClient.put(`/cases/${caseId}`, data),
@@ -16,6 +16,7 @@ export const casesApi = {
     deleteDocument: (caseId: string, documentId: string) => axiosClient.delete(`/cases/${caseId}/documents/${documentId}`),
     // Daily cases for doctor dashboard
     getDailyCases: (date?: string) => axiosClient.get('/cases/today', { params: { date } }),
+    getDailyRevisits: (date?: string) => axiosClient.get('/cases/revisits/daily', { params: { date } }),
     // Export / print
     exportReportHtml: (caseId: string, reportId: string) =>
         axiosClient.get(`/cases/${caseId}/reports/${reportId}/export/html`, { responseType: 'text' }),

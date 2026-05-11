@@ -185,16 +185,23 @@ export default function CollectionData() {
             {/* Cases Table */}
             {data?.cases?.length > 0 && (
                 <div className="widget cases-widget">
-                    <div className="widget-header"><h3 className="widget-title">Cases</h3></div>
+                    <div className="widget-header"><h3 className="widget-title">Cases & Revisits</h3></div>
                     <div className="table-wrapper">
                         <table>
                             <thead><tr><th>Case #</th><th>Patient</th><th>Service</th><th>Amount</th><th>Payment</th><th>Date</th></tr></thead>
                             <tbody>
                                 {data.cases.map((c: any) => (
-                                    <tr key={c.id || c.case_number}>
-                                        <td><span className="badge badge-primary">{c.case_number || '—'}</span></td>
+                                    <tr key={c.id || c.case_number} className={c.is_revisit ? 'revisit-row' : ''}>
+                                        <td><span className={`badge ${c.is_revisit ? 'badge-secondary' : 'badge-primary'}`}>{c.case_number || '—'}</span></td>
                                         <td>{c.patient_name || '—'}</td>
-                                        <td>{c.service_type}</td>
+                                        <td>
+                                            {c.is_revisit ? (
+                                                <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#FF9F0A' }}></span>
+                                                    Revisit {c.reason ? `(${c.reason})` : ''}
+                                                </span>
+                                            ) : c.service_type}
+                                        </td>
                                         <td>₹{Number(c.amount ?? 0).toLocaleString()}</td>
                                         <td><span className={`badge ${c.payment_mode === 'Cash' ? 'badge-success' : 'badge-warning'}`}>{c.payment_mode}</span></td>
                                         <td className="text-sm text-tertiary">{c.created_at ? new Date(c.created_at).toLocaleDateString('en-IN') : '—'}</td>
