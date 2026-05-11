@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { casesApi, organizationApi } from '../api';
 import { useAuth } from '../contexts/AuthContext';
-import { CalendarDays, TrendingUp, Users, Activity } from 'lucide-react';
+import { CalendarDays, TrendingUp, Users, Activity, RefreshCw } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import './Dashboard.css';
 
@@ -26,6 +26,7 @@ export default function DoctorDashboard() {
     const { } = useAuth();
     const navigate = useNavigate();
     const [todayCases, setTodayCases] = useState<any[]>([]);
+    const [todayRevisits, setTodayRevisits] = useState<any>(null);
     const [dashboard, setDashboard] = useState<any>(null);
     const [loading, setLoading] = useState(true);
 
@@ -35,11 +36,13 @@ export default function DoctorDashboard() {
 
     const loadData = async () => {
         try {
-            const [casesRes, dashRes] = await Promise.all([
+            const [casesRes, revisitsRes, dashRes] = await Promise.all([
                 casesApi.getDailyCases(),
+                casesApi.getDailyRevisits(),
                 organizationApi.getDashboard({ period: 'daily' }),
             ]);
             setTodayCases(Array.isArray(casesRes.data) ? casesRes.data : []);
+            setTodayRevisits(revisitsRes.data);
             setDashboard(dashRes.data);
         } catch (err) {
             console.error('Dashboard load error:', err);
@@ -120,6 +123,15 @@ export default function DoctorDashboard() {
                     <div className="stat-content">
                         <span className="stat-label-text">Net Collection</span>
                         <span className="widget-value">₹{(dashboard?.netCollection ?? 0).toLocaleString()}</span>
+                    </div>
+                </div>
+                <div className="widget stat-widget">
+                    <div className="stat-icon" style={{ background: 'rgba(0,113,227,0.1)', color: '#0071E3' }}>
+                        <RefreshCw size={22} />
+                    </div>
+                    <div className="stat-content">
+                        <span className="stat-label-text">Revisits Today</span>
+                        <span className="widget-value">{todayRevisits?.count ?? 0}</span>
                     </div>
                 </div>
             </div>
@@ -232,6 +244,38 @@ export default function DoctorDashboard() {
                     <p className="text-secondary text-center" style={{ padding: 'var(--space-10)' }}>No cases registered today. <Link to="/create-case">Create one →</Link></p>
                 )}
             </div>
+
+            {/* Recent Revisits */}
+            {todayRevisits?.visits && todayRevisits.visits.length > 0 && (
+                <div className="widget cases-widget">
+                    <div className="widget-header">
+                        <h3 className="widget-title">Recent Revisits</h3>
+                        <span className="badge badge-primary">{todayRevisits.count}</span>
+                    </div>
+                    <div className="table-wrapper">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Patient</th>
+                                    <th>Reason</th>
+                                    <th>Staff</th>
+                                    <th>Time</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {todayRevisits.visits.slice(0, 5).map((v: any) => (
+                                    <tr key={v.id} onClick={() => navigate(`/case/${v.case?.id}`)} style={{ cursor: 'pointer' }}>
+                                        <td>{v.case?.patient?.name ?? '—'}</td>
+                                        <td>{v.reason || '—'}</td>
+                                        <td>{v.attending_staff_name || '—'}</td>
+                                        <td className="text-tertiary text-sm">{new Date(v.visit_date).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { casesApi, referralApi, organizationApi } from '../../api';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { casesApi, referralApi, organizationApi, patientsApi } from '../../api';
 import toast from 'react-hot-toast';
 import './CreateCase.css';
 
@@ -32,6 +32,7 @@ function calcPregnancy(lmp: string): { weeks: number; days: number } {
 
 export default function CreateCase() {
     const navigate = useNavigate();
+    const location = useLocation();
     const [loading, setLoading] = useState(false);
     const [referralDoctors, setReferralDoctors] = useState<{ id: string; doctor_name: string }[]>([]);
     const [staffList, setStaffList] = useState<{id: string; name: string}[]>([]);
@@ -60,6 +61,52 @@ export default function CreateCase() {
             setStaffList(list);
         }).catch(() => {});
     }, []);
+
+    // Prefill patient data if patientId is in route state
+    useEffect(() => {
+        const patientId = location.state?.patientId;
+        if (patientId) {
+            // Fetch patient and their latest case in parallel
+            Promise.all([
+                patientsApi.getDetail(patientId),
+                casesApi.list({ patientId, limit: 1 })
+            ]).then(([patientRes, casesRes]) => {
+                const p = patientRes.data.patient;
+                const medHistory = p.medicalHistory || {};
+                const latestCase = casesRes.data?.cases?.[0];
+                
+                setForm(prev => ({
+                    ...prev,
+                    name: p.name || '',
+                    sex: p.sex || 'Male',
+                    dateOfBirth: p.dateOfBirth ? new Date(p.dateOfBirth).toISOString().split('T')[0] : '',
+                    ageYears: p.ageYears ? String(p.ageYears) : '',
+                    ageMonths: p.ageMonths ? String(p.ageMonths) : '',
+                    addressLine1: p.addressLine1 || '',
+                    addressLine2: p.addressLine2 || '',
+                    area: p.area || '',
+                    city: p.city || '',
+                    pincode: p.pincode || '',
+                    guardianName: p.guardianName || '',
+                    phone: p.phone || '',
+                    alternatePhone: p.alternatePhone || '',
+                    numberOfBoys: medHistory.numberOfBoys ? String(medHistory.numberOfBoys) : '',
+                    numberOfGirls: medHistory.numberOfGirls ? String(medHistory.numberOfGirls) : '',
+                    lmp: medHistory.lmp ? new Date(medHistory.lmp).toISOString().split('T')[0] : '',
+                    pregnancyWeeks: medHistory.pregnancyWeeks ? String(medHistory.pregnancyWeeks) : '',
+                    pregnancyDays: medHistory.pregnancyDays ? String(medHistory.pregnancyDays) : '',
+                    // Use previous case amount and payment mode (snake_case from backend)
+                    serviceType: latestCase?.service_type || 'Sonography',
+                    referredBy: latestCase?.referred_by || '',
+                    amount: latestCase?.amount ? String(latestCase.amount) : '',
+                    paymentMode: latestCase?.payment_mode || 'Cash',
+                }));
+            }).catch(err => {
+                console.error('Failed to fetch patient:', err);
+                toast.error('Failed to load patient data');
+            });
+        }
+    }, [location.state]);
 
     const update = (key: string, val: string) => setForm(prev => ({ ...prev, [key]: val }));
     const isFemale = form.sex === 'Female';
